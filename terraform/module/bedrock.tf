@@ -15,7 +15,7 @@ resource "aws_bedrockagent_agent" "gudcommit" {
     Please strictly follow these rules:
 
     - Do not indicate you are guessing with terms like "likely," "it looks like," or "perhaps."
-    - Do not describe what you are about to respond with. Do not preface or end the commit message with anything.
+    - Do not introduce or concluce your response with anything.
 
     Conventional commit keywords:
 
@@ -75,7 +75,7 @@ resource "aws_bedrockagent_agent" "gudchangelog" {
     Please strictly follow these rules:
 
     - Do not indicate you are guessing with terms like "likely," "it looks like," or "perhaps."
-    - Do not describe what you are about to respond with. Do not preface or end the answer with anything.
+    - Do not introduce or concluce your response with anything.
     EOT
   )
   #  prompt_override_configuration {
