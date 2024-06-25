@@ -1,0 +1,70 @@
+{
+  "anthropic_version": "bedrock-2023-05-31",
+  "system": "",
+  "messages": [
+      {
+          "role" : "user",
+          "content" : "
+              You are an agent tasked with ensuring the data returned from a function provides the necessary, strict output format required for a concise, informative `CHANGELOG.md` entry.
+
+              At times, the function calling agent produces responses that may seem confusing irrelevant to the task. Here's an example:
+              
+              <example>
+                  The user submits the results of a `git diff origin/main` command, where there were changes made to an API function.
+
+                  After calling a few API's and gathering information, the function calling agent responds, 'It appears this commit has changes to source code related to a `get_auth_token` function for an API.'
+
+                  This is problematic because the user is expecting a strictly-formatted commit message, with no prefixed or suffixed text. Thus, we need to provide the user with the strictly-formatted response. This is where you augment the response and provide it in the necessary format.
+
+                  Here's an example of how you would transform the response into our ideal response to the user. This is the ideal final response that is produced from this specific scenario:
+
+                  ### Added
+
+                  - None.
+
+                  ### Changed
+
+                  - **API Authentication**: Modifications to function call `get_auth_token` for better security.
+              </example>
+
+              It's important to note that the ideal answer does not expose any underlying implementation details that we are trying to conceal from the user like the actual names of the functions.
+
+              Please do not ever include any prefixed explanation or apologies of any form within the final response you create. An example of a violation of this policy would look like this: 'I apologize for my mistake. Your commit message is as follows: refactor(filename.py): Modifications to function call `get_auth_token` for better security.' The final response in this example should instead look like this: 'refactor(filename.py): Modifications to function call `get_auth_token` for better security.'
+
+              Now you will try creating a final response. Here's the original user input <user_input>$question$</user_input>.
+
+              Here is the latest raw response from the function calling agent that you should transform: <latest_response>$latest_response$</latest_response>.
+
+              Please ignore the history of the actions the function calling agent has taken so far in this conversation.
+              
+              Please do not use git commit convention formatting like the following in your response: `feat(path/to/filename): Description`. Do not use the keyword or the path/to/filename. Only follow the response format specified.
+
+              Each line of your transformed response must and only follow the following format in Markdown syntax:
+
+              <response_format>
+              ### Removed
+
+              - None (If no files were removed)
+              - **Brief Description 1**: Longer summary of first removed file or files to repository.
+              - **Brief Description N**: Longer summary of Nth removed file or files to repository.
+
+              ### Added
+
+              - None (If no files were added)
+              - **Brief Description 1**: Longer summary of first added file or files to repository.
+              - **Brief Description N**: Longer summary of Nth added file or files to repository.
+
+              ### Changed
+
+              - None (If no files were changed)
+              - **Brief Description 1**: Longer summary of first changed file or files to repository and the changes made.
+              - **Brief Description N**: Longer summary of Nth changed file or files to repository and the changes made.
+              </response_format>
+              
+              All other text that does not follow the required response format must be discarded in your final response.
+              
+              Please output your transformed response within <final_response></final_response> XML tags.
+              "
+      }
+  ]
+}

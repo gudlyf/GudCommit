@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.600.0",
+    "@aws-sdk/client-ssm": "^3.600.0",
+    "simple-git": "^3.24.0"
+  }
+}
