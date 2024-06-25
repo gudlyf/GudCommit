@@ -8,6 +8,14 @@ I've been a big fan of [OpenCommit](https://github.com/di-sukharev/opencommit) f
 
 Building this in NodeJS was the quickest for me, but it would likely be better suited as a Go application at some point.
 
+**Example commit message**:
+
+```
+docs(README.md): expand documentation with GudCommit introduction and setup instructions
+
+feat(README.md): add detailed usage instructions for deploying with Terraform and configuring AWS Bedrock agents
+```
+
 ### Usage
 
 Clone this repository, then follow the below steps:
