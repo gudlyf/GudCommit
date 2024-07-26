@@ -7,6 +7,7 @@ import {
   GetParameterCommand
 } from "@aws-sdk/client-ssm"; 
 import { simpleGit } from 'simple-git';
+import ora from 'ora';
 
 const awsAccountName = "default";
 const awsRegion = "us-east-1";
@@ -79,8 +80,9 @@ const generateRandomString = async (length = 8) => {
  *
  * @param {string} prompt - The prompt that you want the Agent to complete.
  * @param {string} sessionId - An arbitrary identifier for the session.
+ * @param {obj} spinner - ORA progress spinner object.
  */
-export const invokeBedrockAgent = async (prompt, sessionId) => {
+export const invokeBedrockAgent = async (prompt, sessionId, spinner) => {
   const client = new BedrockAgentRuntimeClient({ region: awsRegion, profile: awsAccountName });
 
   const command = new InvokeAgentCommand({
@@ -92,6 +94,8 @@ export const invokeBedrockAgent = async (prompt, sessionId) => {
 
   try {
     let completion = "";
+    spinner.start(':: Waiting for response from Bedrock ...');
+
     const response = await client.send(command);
 
     if (response.completion === undefined) {
@@ -104,8 +108,10 @@ export const invokeBedrockAgent = async (prompt, sessionId) => {
       completion += decodedResponse;
     }
 
+    spinner.succeed(':: Response received from Bedrock');
     return { sessionId: sessionId, completion };
   } catch (err) {
+    spinner.fail('>> Error while waiting for response from Bedrock');
     if (err.name === "ExpiredTokenException") {
       console.error(`>> The security token included in the request is expired. Re-authenticate to the ${awsAccountName} AWS account and try again.`);
     } else {
@@ -114,9 +120,9 @@ export const invokeBedrockAgent = async (prompt, sessionId) => {
   }
 };
 
-
 // Call function if run directly
 const run = async () => {
+  const spinner = ora();
   try {
     const sessionId = await generateRandomString();
     let diffOutput = await gitDiffResult();
@@ -129,7 +135,7 @@ const run = async () => {
 
     diffOutput = diffOutput.replace(/\\/gm, '\\\\');
     try {
-      const result = await invokeBedrockAgent(diffOutput, sessionId);
+      const result = await invokeBedrockAgent(diffOutput, sessionId, spinner);
       let commitMessage;
       if (result?.completion) {
         commitMessage = result.completion.trim();
