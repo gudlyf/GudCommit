@@ -26,26 +26,26 @@ resource "aws_bedrockagent_agent" "gudcommit" {
     keyword(full filename being changed): Single sentence describing change and why it was done.
     EOT
   )
-  #  prompt_override_configuration {
-  #    prompt_configurations = [
-  #      {
-  #        base_prompt_template = file("${path.module}/prompt_templates/gudcommit_post_processing.json")
-  #        inference_configuration = [
-  #          {
-  #            max_length     = 2048
-  #            stop_sequences = ["\n\nHuman:"]
-  #            temperature    = 0
-  #            top_k          = 250
-  #            top_p          = 1
-  #          }
-  #        ]
-  #        parser_mode          = "DEFAULT"
-  #        prompt_creation_mode = "OVERRIDDEN"
-  #        prompt_state         = "ENABLED"
-  #        prompt_type          = "POST_PROCESSING"
-  #      }
-  #    ]
-  #  }
+  prompt_override_configuration {
+    prompt_configurations = [
+      {
+        base_prompt_template = file("${path.module}/prompt_templates/gudcommit_post_processing.json")
+        inference_configuration = [
+          {
+            max_length     = 2048
+            stop_sequences = ["\n\nHuman:"]
+            temperature    = 0
+            top_k          = 250
+            top_p          = 1
+          }
+        ]
+        parser_mode          = "DEFAULT"
+        prompt_creation_mode = "OVERRIDDEN"
+        prompt_state         = "ENABLED"
+        prompt_type          = "POST_PROCESSING"
+      }
+    ]
+  }
 }
 
 resource "aws_bedrockagent_agent_alias" "gudcommit" {
@@ -78,26 +78,26 @@ resource "aws_bedrockagent_agent" "gudchangelog" {
     - Do not introduce or concluce your response with anything.
     EOT
   )
-  #  prompt_override_configuration {
-  #    prompt_configurations = [
-  #      {
-  #        base_prompt_template = file("${path.module}/prompt_templates/gudchangelog_post_processing.json")
-  #        inference_configuration = [
-  #          {
-  #            max_length     = 2048
-  #            stop_sequences = ["\n\nHuman:"]
-  #            temperature    = 0
-  #            top_k          = 250
-  #            top_p          = 1
-  #          }
-  #        ]
-  #        parser_mode          = "DEFAULT"
-  #        prompt_creation_mode = "OVERRIDDEN"
-  #        prompt_state         = "ENABLED"
-  #        prompt_type          = "POST_PROCESSING"
-  #      }
-  #    ]
-  #  }
+  prompt_override_configuration {
+    prompt_configurations = [
+      {
+        base_prompt_template = file("${path.module}/prompt_templates/gudchangelog_post_processing.json")
+        inference_configuration = [
+          {
+            max_length     = 2048
+            stop_sequences = ["\n\nHuman:"]
+            temperature    = 0
+            top_k          = 250
+            top_p          = 1
+          }
+        ]
+        parser_mode          = "DEFAULT"
+        prompt_creation_mode = "OVERRIDDEN"
+        prompt_state         = "ENABLED"
+        prompt_type          = "POST_PROCESSING"
+      }
+    ]
+  }
 }
 
 resource "aws_bedrockagent_agent_alias" "gudchangelog" {
@@ -118,7 +118,7 @@ resource "null_resource" "prepare_gudcommit" {
     agent_state = sha256(jsonencode(aws_bedrockagent_agent.gudcommit))
   }
   provisioner "local-exec" {
-    command = "aws --profile default bedrock-agent prepare-agent --agent-id ${aws_bedrockagent_agent.gudcommit.id}"
+    command = "aws --region us-east-1 --profile default bedrock-agent prepare-agent --agent-id ${aws_bedrockagent_agent.gudcommit.id}"
   }
   depends_on = [
     aws_bedrockagent_agent.gudcommit,
@@ -130,7 +130,7 @@ resource "null_resource" "prepare_gudchangelog" {
     agent_state = sha256(jsonencode(aws_bedrockagent_agent.gudchangelog))
   }
   provisioner "local-exec" {
-    command = "aws --profile default bedrock-agent prepare-agent --agent-id ${aws_bedrockagent_agent.gudchangelog.id}"
+    command = "aws --region us-east-1 --profile default bedrock-agent prepare-agent --agent-id ${aws_bedrockagent_agent.gudchangelog.id}"
   }
   depends_on = [
     aws_bedrockagent_agent.gudchangelog,
