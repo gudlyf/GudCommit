@@ -143,6 +143,8 @@ jobs:
             - Build Date: ${{ steps.meta.outputs.date }}
             - Branch: ${{ github.ref_name }}
           files: |
-            dist/golang/bin/*
-            dist/golang/build.env
+            dist/**
+          fail_on_unmatched_files: true
+          draft: false
+          generate_release_notes: true
 
