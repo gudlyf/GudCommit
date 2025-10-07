@@ -17,14 +17,11 @@ linters:
     - errcheck
     - gosimple
     - govet
-    - shadow
     - ineffassign
     - staticcheck
     - unused
     - typecheck
-  disable:
-    - deadcode
-    - varcheck
+  disable: []
 
 issues:
   exclude-rules:
