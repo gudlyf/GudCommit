@@ -1,0 +1,334 @@
+spec:
+  inputs:
+    SAST_SEVERITY_THRESHOLD:
+      options: ['low', 'medium', 'high']
+      default: 'high'
+      description: "Severity threshold for Snyk SAST scans"
+    SAST_ALLOW_FAILURE:
+      type: boolean
+      default: false
+      description: "Allow Snyk SAST scans to fail the build"
+    SAST_DISABLED:
+      options: ['true', 'false']
+      default: 'false'
+      description: "Disable Snyk SAST scans"
+
+---
+
+stages:
+  - deps
+  - lint
+  - test
+  - build
+  - release
+
+include:
+  - remote: 'https://jornaya-leadidaws-us-east-1-gitlab-configs.s3.amazonaws.com/jornaya-gitlab-ci.yml'
+    inputs:
+      SAST_SEVERITY_THRESHOLD: $[[ inputs.SAST_SEVERITY_THRESHOLD ]]
+      SAST_ALLOW_FAILURE: $[[ inputs.SAST_ALLOW_FAILURE ]]
+      SAST_DISABLED: $[[ inputs.SAST_DISABLED ]]
+
+Snyk OpenSource Golang:
+  extends: .snyk_opensource_golang
+  allow_failure: $[[ inputs.SAST_ALLOW_FAILURE ]]
+  before_script:
+    - cd golang
+  rules:
+    - if: '"$[[ inputs.SAST_DISABLED ]]" == "true"'
+      when: never
+    - if: $SAST_DISABLED == 'true' || $SAST_DISABLED == '1'
+      when: never
+    - when: always
+
+# Download dependencies
+Download Dependencies:
+  stage: deps
+  image: golang:1.25-alpine
+  script:
+    - apk add make
+    - cd golang && make deps
+  cache:
+    paths:
+      - golang/go.sum
+      - golang/go.mod
+    key: $CI_COMMIT_SHA
+    policy: pull-push
+  tags:
+    - docker
+
+# Check code formatting
+Format Check:
+  stage: lint
+  image: golang:1.25-alpine
+  script:
+    - apk add git make
+    - cd golang && make fmt
+    - |
+      if [ -n "$(git diff --exit-code)" ]; then
+        echo "Code is not properly formatted. Please run 'make fmt' and commit the changes."
+        git diff
+        exit 1
+      else
+        echo "Code is properly formatted."
+      fi
+  tags:
+    - docker
+  cache:
+    paths:
+      - golang/go.sum
+      - golang/go.mod
+    key: $CI_COMMIT_SHA
+    policy: pull
+
+# Lint code with golangci-lint
+Lint:
+  stage: lint
+  image: golang:1.25-alpine
+  script:
+    - apk add --no-cache git make
+    - cd golang
+    - go mod download
+    - go mod tidy
+    - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+    - golangci-lint run --verbose
+  tags:
+    - docker
+  cache:
+    paths:
+      - golang/go.sum
+      - golang/go.mod
+    key: $CI_COMMIT_SHA
+    policy: pull
+  allow_failure: false
+
+Test:
+  stage: test
+  image: golang:1.25-alpine
+  script:
+    - apk add make
+    - cd golang && make test
+  tags:
+    - docker
+  cache:
+    paths:
+      - golang/go.sum
+      - golang/go.mod
+    key: $CI_COMMIT_SHA
+    policy: pull
+  needs:
+    - Download Dependencies
+    - Format Check
+    - Lint
+
+Build:
+  stage: build
+  image: golang:1.25-alpine
+  script:
+    - apk add make
+    - cd golang && make build-all
+  artifacts:
+    paths:
+      - golang/bin/*
+    expire_in: 30 days
+    reports:
+      dotenv: build.env
+  tags:
+    - docker
+  cache:
+    paths:
+      - golang/go.sum
+      - golang/go.mod
+    key: $CI_COMMIT_SHA
+    policy: pull
+  needs:
+    - Test
+  after_script:
+    - echo "BUILD_VERSION=$CI_COMMIT_TAG" >> build.env
+    - echo "BUILD_COMMIT=$CI_COMMIT_SHA" >> build.env
+    - echo "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> build.env
+
+# Clean build artifacts (runs on all branches)
+Clean:
+  stage: build
+  image: golang:1.25-alpine
+  script:
+    - apk add make
+    - cd golang && make clean
+    - echo "Build artifacts cleaned successfully"
+  tags:
+    - docker
+  cache:
+    paths:
+      - golang/go.sum
+      - golang/go.mod
+    key: $CI_COMMIT_SHA
+    policy: pull
+  when: manual
+  allow_failure: true
+
+# Create GitLab Release for tagged versions
+Create Release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  script:
+    - echo "Creating release for version $CI_COMMIT_TAG"
+  release:
+    name: 'Release $CI_COMMIT_TAG'
+    description: |
+      Gudcommit Tools Release $CI_COMMIT_TAG
+      
+      Binaries Available:
+      - gudcommit: Git commit message generator
+      - gudchangelog: Changelog generator
+      
+      Supported Platforms:
+      - Linux (amd64, arm64)
+      - macOS (amd64, arm64) 
+      - Windows (amd64, arm64)
+      
+      Installation:
+      Download the appropriate binary for your platform and make it executable:
+      chmod +x gudcommit-<platform>-<arch>
+      chmod +x gudchangelog-<platform>-<arch>
+      
+      Build Info:
+      - Commit: $CI_COMMIT_SHA
+      - Build Date: $BUILD_DATE
+      - Branch: $CI_COMMIT_REF_NAME
+    tag_name: '$CI_COMMIT_TAG'
+    ref: '$CI_COMMIT_SHA'
+    assets:
+      links:
+        - name: 'gudcommit-linux-amd64'
+          url: '${CI_JOB_URL}/artifacts/file/golang/bin/gudcommit-linux-amd64'
+          link_type: 'other'
+        - name: 'gudcommit-linux-arm64'
+          url: '${CI_JOB_URL}/artifacts/file/golang/bin/gudcommit-linux-arm64'
+          link_type: 'other'
+        - name: 'gudcommit-darwin-amd64'
+          url: '${CI_JOB_URL}/artifacts/file/golang/bin/gudcommit-darwin-amd64'
+          link_type: 'other'
+        - name: 'gudcommit-darwin-arm64'
+          url: '${CI_JOB_URL}/artifacts/file/golang/bin/gudcommit-darwin-arm64'
+          link_type: 'other'
+        - name: 'gudcommit-windows-amd64.exe'
+          url: '${CI_JOB_URL}/artifacts/file/golang/bin/gudcommit-windows-amd64.exe'
+          link_type: 'other'
+        - name: 'gudcommit-windows-arm64.exe'
+          url: '${CI_JOB_URL}/artifacts/file/golang/bin/gudcommit-windows-arm64.exe'
+          link_type: 'other'
+        - name: 'gudchangelog-linux-amd64'
+          url: '${CI_JOB_URL}/artifacts/file/golang/bin/gudchangelog-linux-amd64'
+          link_type: 'other'
+        - name: 'gudchangelog-linux-arm64'
+          url: '${CI_JOB_URL}/artifacts/file/golang/bin/gudchangelog-linux-arm64'
+          link_type: 'other'
+        - name: 'gudchangelog-darwin-amd64'
+          url: '${CI_JOB_URL}/artifacts/file/golang/bin/gudchangelog-darwin-amd64'
+          link_type: 'other'
+        - name: 'gudchangelog-darwin-arm64'
+          url: '${CI_JOB_URL}/artifacts/file/golang/bin/gudchangelog-darwin-arm64'
+          link_type: 'other'
+        - name: 'gudchangelog-windows-amd64.exe'
+          url: '${CI_JOB_URL}/artifacts/file/golang/bin/gudchangelog-windows-amd64.exe'
+          link_type: 'other'
+        - name: 'gudchangelog-windows-arm64.exe'
+          url: '${CI_JOB_URL}/artifacts/file/golang/bin/gudchangelog-windows-arm64.exe'
+          link_type: 'other'
+  tags:
+    - docker
+  rules:
+    - if: $CI_COMMIT_TAG
+  needs:
+    - job: Build
+      artifacts: true
+
+# Upload to GitLab Package Registry
+Upload to Package Registry:
+  stage: release
+  image: curlimages/curl:latest
+  tags:
+    - docker
+  script:
+    - |
+      for binary in golang/bin/*; do
+        filename=$(basename "$binary")
+        echo "Uploading $filename to package registry..."
+        
+        # Create package metadata
+        cat > package.json << EOF
+      {
+        "name": "gudcommit-tools",
+        "version": "$CI_COMMIT_TAG",
+        "description": "Git commit message and changelog generation tools",
+        "main": "$filename",
+        "bin": {
+          "$filename": "./$filename"
+        },
+        "files": ["$filename"],
+        "repository": {
+          "type": "git",
+          "url": "$CI_PROJECT_URL"
+        },
+        "license": "MIT",
+        "author": "Jornaya",
+        "homepage": "$CI_PROJECT_URL"
+      }
+      EOF
+        
+        # Upload to GitLab Package Registry
+        curl --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+             --upload-file "$binary" \
+             "$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/gudcommit-tools/$CI_COMMIT_TAG/$filename"
+      done
+  rules:
+    - if: $CI_COMMIT_TAG
+  needs:
+    - job: Build
+      artifacts: true
+
+# Track deployment
+Track Deployment:
+  stage: release
+  image: curlimages/curl:latest
+  tags:
+    - docker
+  script:
+    - |
+      echo "Tracking deployment for version $CI_COMMIT_TAG"
+      
+      # Check if GITLAB_TOKEN is available
+      if [ -z "$GITLAB_TOKEN" ]; then
+        echo "⚠️  GITLAB_TOKEN not set - skipping deployment tracking"
+        echo "To enable deployment tracking, set GITLAB_TOKEN in GitLab CI/CD variables"
+        exit 0
+      fi
+      
+      # Create deployment record
+      response=$(curl --request POST \
+           --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+           --header "Content-Type: application/json" \
+           --data "{
+             \"environment\": \"production\",
+             \"ref\": \"$CI_COMMIT_SHA\",
+             \"tag\": true,
+             \"status\": \"success\",
+             \"deployable_id\": $CI_PIPELINE_ID
+           }" \
+           --silent --show-error \
+           "$CI_API_V4_URL/projects/$CI_PROJECT_ID/deployments")
+      
+      # Check if deployment was successful
+      if echo "$response" | grep -q "id"; then
+        echo "✅ Deployment tracked successfully"
+      else
+        echo "⚠️  Deployment tracking failed: $response"
+        echo "This is not critical - your release will still work"
+      fi
+  rules:
+    - if: $CI_COMMIT_TAG
+  needs:
+    - job: Build
+      artifacts: true
+  allow_failure: true

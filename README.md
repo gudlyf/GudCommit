@@ -1,72 +1,129 @@
-# GudCommit
+# GudCommit & GudChangelog - AI-Powered Git Tools
 
-### Generate understandable, concise git commit messages and CHANGELOG.md files based on diff's, using AWS Bedrock AI Agents.
+GudCommit generates clean, conventional commit messages and GudChangelog creates changelog entries using AWS Bedrock AI models. Now with **API key authentication** - no IAM users or AWS profiles required!
 
-I've been a big fan of [OpenCommit](https://github.com/di-sukharev/opencommit) for AI-generated commit messages, because sometimes you're just too time-constrained to write something more detailed than "Fixed bug." But it's currently only able to run in public AI systems like OpenAI and on local-system LLMs like [Ollama](https://ollama.com/). I wanted something that worked in my own environment, on my own terms, but works much faster and better than Ollama.
+## 🚀 Quick Start (Automatic API Key Method)
 
-**GudCommit** runs in AWS Bedrock. The default LLM model it uses is Claude v3 (or 3.5, once that becomes available for use with agents), but it can be easily changed to use whatever model suits you.
+### Option 1: Automatic API Key Management (Recommended)
+```bash
+# One-time setup (if not already done)
+./scripts/auto-api-key.sh setup
 
-Building this in NodeJS was the quickest for me, but it would likely be better suited as a Go application at some point.
+# Use GudCommit (automatically manages API keys)
+./scripts/auto-api-key.sh run
 
-**Example commit message**:
-
-```
-docs(README.md): expand documentation with GudCommit introduction and setup instructions
-
-feat(README.md): add detailed usage instructions for deploying with Terraform and configuring AWS Bedrock agents
-```
-
-### Usage
-
-Clone this repository, then follow the below steps:
-
-On Mac:
-
-```sh
-brew install awscli jq node tenv
+# Use GudChangelog (automatically manages API keys)
+./scripts/auto-api-key.sh run gudchangelog main
 ```
 
-Authenticate in your shell to the `default` AWS account, ensuring you have current credentials in `~/.aws/credentials` for that account and the profile is named `default`.
+### Option 2: Manual API Key Method
+1. Go to [AWS Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/api-keys)
+2. Click "Create API Key" → "Short-term API key"
+3. Set environment variable: `export GUD_BEDROCK_API_KEY="your-key"`
+4. Build and use: `cd golang && make build && ./bin/gudcommit` or `./bin/gudchangelog main`
 
-#### Deploy OpenTofu/Terraform
+**That's it!** No AWS profiles, no IAM users, no complex setup.
 
-```sh
-cd GudCommit/terraform/dev
-tenv tofu install latest-allowed
+## 📋 Detailed Setup
+
+### Option 1: Automated Setup Script
+```bash
+# Run the interactive setup script
+./scripts/auto-api-key.sh setup
 ```
 
-Check values in `main.tf` for Terraform state information, and `variables.tf` for LLM to use. Refer to [AWS Documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html) on the model IDs available.
+### Option 2: Manual Setup
+1. **Generate API Key**: [Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/api-keys)
+2. **Set Environment Variable**:
+   ```bash
+   export GUD_BEDROCK_API_KEY="your-key"
+   # Add to ~/.bashrc or ~/.zshrc for persistence
+   ```
+3. **Build and Test**:
+   ```bash
+   cd golang && make build
+   git add . && ./bin/gudcommit
+   ```
 
-```sh
-tofu init
-tofu apply
+## 🔧 Configuration
+
+### JSON Config (recommended)
+You can configure model, timeout, and region without code changes using a JSON file:
+
+Order of precedence: environment variables > `~/.gudcommit.json` > `~/.gudchangelog.json` > defaults
+
+Example `~/.gudcommit.json`:
+```json
+{
+  "model_id": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+  "timeout_seconds": 60,
+  "region": "us-east-1"
+}
 ```
 
-#### Update Agent Post-Processing
+Defaults if not set:
+- `model_id`: `anthropic.claude-3-5-sonnet-20240620-v1:0`
+- `timeout_seconds`: `60`
+- `region`: `us-east-1`
 
-The `prompt_templates` are currently commented out of the Terraform code, since the provider still seems to have trouble with it. Once it is fixed, I'll uncomment the code so it can be applied without having to manually do so. Until then:
+Environment variable overrides:
+- `GUD_BEDROCK_MODEL_ID`
+- `GUD_HTTP_TIMEOUT_SECONDS`
+- `AWS_REGION`
 
-1. Navigate to the deployed Bedrock agents in the AWS console.
-2. Click on each one and click the button labeled **Edit in Agent Builder**.
-3. Scroll to the bottom of the page and click the **Edit** button under **Advanced prompts**.
-4. Select the **Post-processing** tab. Flip both switches for **Override post-processing template defaults** and **Activate post-processing template**.
-5. Find the applicable post-processing JSON in `terraform/module/prompt_templates` and paste it into the **Prompt template editor** window.
-6. **Save and exit**
-7. At the top of the window, click **Prepare**, then **Save and exit**.
+API key (still required):
+- `GUD_BEDROCK_API_KEY` must be set (short‑term key from the Bedrock console)
 
-#### Running GudCommit
+### Automatic API Key Management
+The `scripts/auto-api-key.sh` helper provides:
+- **Generation**: Creates short-term API keys using AWS Bedrock token generator
+- **Credential storage**: Saves to `~/.gudcommit-credentials`
+- **Environment management**: Loads `GUD_BEDROCK_API_KEY` and `AWS_REGION`
+- **12-hour expiration**: Keys automatically expire for security
 
-Install the dependencies:
+### Manual Configuration
+- `GUD_BEDROCK_API_KEY` (required): Your Bedrock API key
+- `AWS_REGION` (optional): AWS region (defaults to us-east-1)
 
-```sh
-cd GudCommit && npm install
+## 📖 Usage
+
+### GudCommit (Commit Messages)
+```bash
+# Stage your changes
+git add .
+
+# Generate commit message
+./golang/bin/gudcommit
 ```
 
-Create the following bash/zsh alias in your `~/.bashrc` or `./zshrc` file:
+### GudChangelog (Changelog Entries)
+```bash
+# Generate changelog for changes between branches
+./golang/bin/gudchangelog main
 
-```sh
+# Or compare with any other branch
+./golang/bin/gudchangelog develop
+```
+
+### Discover available models/inference profiles
+List models that support direct on-demand invocation:
+```bash
+aws bedrock list-foundation-models --region us-east-1 \
+  --query "modelSummaries[?contains(inferenceTypesSupported, 'ON_DEMAND')].[modelId,providerName]" \
+  --output table
+```
+
+List inference profiles (required for many Claude 3.5+ models):
+```bash
+aws bedrock list-inference-profiles --region us-east-1 \
+  --query 'inferenceProfileSummaries[].{arn:inferenceProfileArn,name:inferenceProfileName,model:modelSource.type}'
+```
+
+### Shell Aliases (Optional)
+Add to your `~/.bashrc` or `~/.zshrc`:
+```bash
 function gudco() {
-    local commit_message="$(node ~/path/to/gudcommit/gudcommit.mjs)"
+    local commit_message="$($HOME/golang/bin/gudcommit)"
     echo "Generated commit message:"
     echo ""
     echo "\033[1m$commit_message\033[0m"
@@ -85,53 +142,172 @@ function gudco() {
             ;;
     esac
 }
-
-function gudcl() {
-    local branch=$1
-    if [[ ! "$branch" ]]; then
-        echo ">> Must specify a branch to compare to as argument"
-        return 1
-    fi
-    local changelog_message="$(node ~/path/to/gudcommit/gudchangelog.mjs $branch)"
-    if [[ ! "$changelog_message" ]]; then
-        echo ">> No message generated."
-        return 1
-    fi
-    echo "Generated CHANGELOG.md message:"
-    echo ""
-    echo "\033[1m$changelog_message\033[0m"
-    echo ""
-    echo -n "Prepend this content to CHANGELOG.md? (y/n): "
-    read confirmation
-    case "$confirmation" in
-        [Yy])
-            local top_level="$(git rev-parse --show-toplevel)"
-            echo "$changelog_message" > /tmp/gudchangelog.md
-            if [[ -f "$top_level/CHANGELOG.md" ]]; then
-                cat "$top_level/CHANGELOG.md" >> /tmp/gudchangelog.md
-                echo "---" >> /tmp/gudchangelog.md
-            fi
-            mv /tmp/gudchangelog.md "$top_level/CHANGELOG.md"
-            ;;
-        *)
-            echo "Changelog canceled."
-            ;;
-    esac
-}
 ```
 
-```sh
-source ~/.bashrc || source ~/.zshrc
+## 🏗️ Architecture
+
+### New Implementation
+- **Direct Bedrock API calls** using HTTP requests
+- **API key authentication** (no AWS SDK required)
+- **Default model**: `anthropic.claude-3-5-sonnet-20240620-v1:0` (configurable)
+- **Conventional commit format** with structured JSON parsing
+
+### Benefits
+✅ **No IAM users required**  
+✅ **No AWS profiles needed**  
+✅ **No AWS SDK dependencies**  
+✅ **Works anywhere with API key**  
+✅ **Better performance** (direct model calls)  
+✅ **Simpler setup** (just one environment variable)  
+
+## 🔒 Security
+
+- **Never commit API keys to git**
+- **Use environment variables only**
+- **Regenerate keys regularly**
+- **Short-term keys are more secure**
+
+## 🐛 Troubleshooting
+
+### API Key Issues
+
+#### "GUD_BEDROCK_API_KEY environment variable is not set"
+```bash
+# Manual method
+export GUD_BEDROCK_API_KEY="your-key"
+
+# Automatic method
+./scripts/auto-api-key.sh generate
 ```
 
-When in another project and have added/staged files to commit (i.e. `git add .`), run the following:
+#### "Bedrock API error: 403"
+- **API key expired**: Regenerate using `./scripts/auto-api-key.sh generate`
+- **Permissions**: Check Bedrock permissions in your AWS account
+- **Policy**: Ensure you have `AmazonBedrockLimitedAccess` policy attached
 
-```sh
-gudco
+#### "Bedrock API error: 400"
+- **Request format**: Check request format (should be automatic)
+- **Region**: Verify AWS region is correct
+
+### Automatic API Key Management Issues
+
+#### "Python 3 not found"
+```bash
+# macOS
+brew install python3
+
+# Ubuntu
+sudo apt install python3 python3-pip
+
+# CentOS
+sudo yum install python3 python3-pip
 ```
 
-You can also create output to be prepended to an existing or new `CHANGELOG.md` file. This will compare the current working branch with one you plan to merge into:
+#### "AWS credentials not configured"
+```bash
+# Configure AWS CLI
+aws configure
 
-```sh
-gudcl main
+# Or set environment variables
+export AWS_ACCESS_KEY_ID="your-key"
+export AWS_SECRET_ACCESS_KEY="your-secret"
 ```
+
+#### "aws-bedrock-token-generator not found"
+```bash
+# Install manually
+pip3 install aws-bedrock-token-generator
+```
+
+### Debug Commands
+```bash
+# Check API key status
+./scripts/auto-api-key.sh status
+
+# Test key generation
+./scripts/auto-api-key.sh generate
+
+# Run in debug mode
+./scripts/auto-api-key.sh run --debug
+```
+
+## 📦 Releases & Downloads
+
+### Pre-built Binaries
+Download the latest release binaries for your platform:
+
+- **Linux (amd64, arm64)**: `gudcommit-linux-*`, `gudchangelog-linux-*`
+- **macOS (amd64, arm64)**: `gudcommit-darwin-*`, `gudchangelog-darwin-*`
+- **Windows (amd64, arm64)**: `gudcommit-windows-*.exe`, `gudchangelog-windows-*.exe`
+
+### Installation
+```bash
+# Download the appropriate binary for your platform
+chmod +x gudcommit-<platform>-<arch>
+chmod +x gudchangelog-<platform>-<arch>
+
+# Move to your PATH (optional)
+sudo mv gudcommit-<platform>-<arch> /usr/local/bin/gudcommit
+sudo mv gudchangelog-<platform>-<arch> /usr/local/bin/gudchangelog
+```
+
+### From Source
+```bash
+# Clone and build
+git clone git@github.com:gudlyf/GudCommit.git
+cd GudCommit
+cd golang && make build
+```
+
+## 📚 Documentation
+
+- [Conventional Commits](https://www.conventionalcommits.org/)
+- [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
+
+### Developer Documentation
+- [Go Implementation Summary](golang/GO_IMPLEMENTATION_SUMMARY.md) - Architecture and development details
+
+## 🧪 Development & Testing
+
+### Running Tests
+```bash
+# Run all tests
+cd golang && go test ./...
+
+# Run tests with coverage
+cd golang && go test -cover ./...
+
+# Run benchmarks
+cd golang && go test -bench=. ./...
+
+# Run linting
+cd golang && golangci-lint run
+```
+
+### Build Commands
+```bash
+# Build for current platform
+cd golang && make build
+
+# Build for all platforms
+cd golang && make build-all
+
+# Clean build artifacts
+cd golang && make clean
+
+# Run tests
+cd golang && make test
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests: `cd golang && make test`
+5. Run linting: `cd golang && golangci-lint run`
+6. Submit a pull request
+
+---
+
+**Note**: This version uses direct Bedrock model invocation with API keys, eliminating the need for complex AWS setup while maintaining all the functionality of the original GudCommit.

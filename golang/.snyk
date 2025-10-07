@@ -1,0 +1,23 @@
+# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
+version: v1.25.0
+
+# Ignore specific vulnerabilities (if needed)
+# ignore:
+#   SNYK-GOLANG-GITHUBCOMGIN-GONICGIN-1056556:
+#     - '*':
+#         reason: No fix available
+#         expires: '2024-12-31T23:59:59.999Z'
+
+# Patch specific vulnerabilities (if needed)
+# patch:
+#   SNYK-GOLANG-GITHUBCOMGIN-GONICGIN-1056556:
+#     - '*':
+#         patched: '2024-01-01T00:00:00.000Z'
+
+# Language settings
+language-settings:
+  golang:
+    # Scan go.mod and go.sum files
+    scan-unmanaged: false
+    # Include dev dependencies
+    dev-dependencies: true
