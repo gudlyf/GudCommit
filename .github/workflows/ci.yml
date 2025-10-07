@@ -111,6 +111,12 @@ jobs:
         with:
           name: gudcommit-binaries
           path: dist
+      - name: List downloaded artifacts
+        run: |
+          echo "Listing dist contents:"
+          ls -la dist || true
+          echo "Listing dist/golang/bin:"
+          ls -la dist/golang/bin || true
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -132,5 +138,6 @@ jobs:
             - Build Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)
             - Branch: ${{ github.ref_name }}
           files: |
-            ./dist/*
+            dist/golang/bin/*
+            dist/golang/build.env
 
