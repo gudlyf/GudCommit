@@ -221,7 +221,7 @@ The Go version offers several performance advantages:
 
 ### Common Issues
 
-1. **AWS Authentication**: Ensure your AWS credentials are configured for the `Jornaya-Dev` profile
+1. **AWS Authentication**: Ensure your AWS credentials are configured (via `aws configure` or environment variables)
 2. **Git Repository**: Make sure you're in a git repository with staged changes
 3. **SSM Parameters**: Verify that the required SSM parameters exist in your AWS account
 

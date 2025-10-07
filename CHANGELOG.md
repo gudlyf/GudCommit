@@ -1,15 +1,34 @@
-## [Unreleased]
+## 2.0.0
 
 ### Added
-- Go implementation of GudCommit tool
-- Support for cross-platform builds
-- Comprehensive test suite
+- Go implementation of GudCommit and GudChangelog tools
+- CI/CD pipeline with GitHub Actions for building, testing, and releasing
+- Cross-platform build support for Linux, macOS, and Windows
+- API key authentication for Bedrock model invocation
+- JSON configuration file support for customizing model and timeout settings
+- Automatic API key management script for improved user experience
+- Comprehensive test suite for Go implementation
+- GitLab CI configuration for alternative CI/CD setup
 
 ### Changed
-- Migrated from JavaScript to Go for better performance and portability
-- Improved error handling and fallback mechanisms
+- Migrated from JavaScript to Go for improved performance and portability
+- Replaced AWS SDK and Bedrock agents with direct HTTP requests to Bedrock API
+- Updated project structure to support Go modules and packages
+- Improved error handling and fallback mechanisms in Go implementation
+- Refactored README with detailed setup and usage instructions for Go version
+- Updated CHANGELOG format to be more detailed and follow Keep a Changelog conventions
+- Simplified authentication process by using API keys instead of AWS credentials
+
+### Removed
+- JavaScript implementation of GudCommit and GudChangelog
+- Terraform configurations for Bedrock agents
+- AWS SDK dependencies and related configuration
+- Node.js package management files (package.json, package-lock.json)
+- GNU General Public License (replaced with new licensing, not specified in diff)
 
 ---
+
+## [Unreleased]
 
 ### Added
 - Added `ora` package for terminal spinner/progress indicator
@@ -24,6 +43,8 @@
 The changes were made to improve the user experience by providing visual feedback while waiting for Bedrock's response, and to enhance error handling. Additionally, the AWS provider version was updated, and a new variable was added to the Terraform module to allow specifying the AWS profile for Bedrock.
 
 ---
+
+## [Unreleased]
 
 ## Added
 
