@@ -4,6 +4,7 @@ run:
 
 linters-settings:
   govet:
+    check-shadowing: true
     settings:
       printf:
         funcs:
@@ -21,7 +22,9 @@ linters:
     - staticcheck
     - unused
     - typecheck
-  disable: []
+  disable:
+    - deadcode
+    - varcheck
 
 issues:
   exclude-rules:
