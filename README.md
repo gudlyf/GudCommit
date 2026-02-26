@@ -1,89 +1,174 @@
 # GudCommit & GudChangelog - AI-Powered Git Tools
 
-GudCommit generates clean, conventional commit messages and GudChangelog creates changelog entries using AWS Bedrock AI models. Now with **API key authentication** - no IAM users or AWS profiles required!
+GudCommit generates clean, conventional commit messages and GudChangelog creates changelog entries using Claude. You can use **the Claude CLI** (your existing Claude app / Claude Code login), **AWS Bedrock**, or the **Anthropic API**.
 
-## 🚀 Quick Start (Automatic API Key Method)
+## Choosing your LLM provider
 
-### Option 1: Automatic API Key Management (Recommended)
+| Provider | Best for | Setup |
+|----------|----------|--------|
+| **`claude-cli`** | Claude app / Claude Code users; no API key or AWS | Install [Claude Code](https://code.claude.com/) (includes `claude` CLI), then set `"provider": "claude-cli"` |
+| **`anthropic`** | No AWS; you have an API key from console.anthropic.com | Set `ANTHROPIC_API_KEY` and `"provider": "anthropic"` |
+| **`bedrock`** (default) | AWS accounts, `aws login` | Configure AWS credentials (e.g. `aws login` + `credential_process`) |
+
+- **`claude-cli`** – Runs the `claude` CLI (`claude -p "..."`) so it uses **your existing Claude app or Claude Code login**. No API key and no separate console.anthropic.com account.
+- **`anthropic`** – Calls the Anthropic API; requires an API key from [console.anthropic.com](https://console.anthropic.com/) and separate pay-as-you-go billing.
+- **`bedrock`** – Uses your AWS account and supports the new `aws login` method with automatic credential rotation.
+
+### Claude app / Claude Code vs API (why console.anthropic.com looks like a different account)
+
+**Claude app and Claude Code** sign you in with your usual login (e.g. Google, Apple, or email). That's your **Claude.ai** account (Pro/Max/etc.).  
+
+**API keys** come from **[console.anthropic.com](https://console.anthropic.com/)**. That's a separate product with its own sign-in and **pay-as-you-go billing** (prepaid credits). A Pro/Max subscription does **not** include API access; API usage is billed separately.
+
+If you only use the Claude app or Claude Code, you have three options:
+
+1. **Use the Claude CLI (recommended)** – Set `"provider": "claude-cli"`. GudCommit runs `claude -p "..."` under the hood, so it uses the same login as your Claude app / Claude Code. No API key, no console.anthropic.com. Requires the [Claude Code](https://code.claude.com/) app (which installs the `claude` command).
+2. **Use Bedrock** – If you have AWS, use the `bedrock` provider and `aws login` (or other AWS credentials).
+3. **Use the Anthropic API** – Sign up at [console.anthropic.com](https://console.anthropic.com/), add billing and prepaid credits, then create an API key and set `"provider": "anthropic"`.
+
+## 🚀 Quick Start (Claude CLI – use your Claude app / Claude Code login)
+
+If you already use the Claude app or Claude Code:
+
+1. **Install Claude Code** (includes the `claude` CLI): [code.claude.com](https://code.claude.com/)
+2. **Log in** in the app so `claude` is authenticated (e.g. run `claude` once in a terminal and complete login).
+3. **Configure and run**:
 ```bash
-# One-time setup (if not already done)
-./scripts/auto-api-key.sh setup
-
-# Use GudCommit (automatically manages API keys)
-./scripts/auto-api-key.sh run
-
-# Use GudChangelog (automatically manages API keys)
-./scripts/auto-api-key.sh run gudchangelog main
+# In ~/.gudcommit.json: { "provider": "claude-cli" }
+# Or:
+export GUD_PROVIDER=claude-cli
+cd golang && make build
+git add . && ./bin/gudcommit
 ```
 
-### Option 2: Manual API Key Method
-1. Go to [AWS Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/api-keys)
-2. Click "Create API Key" → "Short-term API key"
-3. Set environment variable: `export GUD_BEDROCK_API_KEY="your-key"`
-4. Build and use: `cd golang && make build && ./bin/gudcommit` or `./bin/gudchangelog main`
+No API key and no AWS needed. The tool runs `claude -p "..."` and captures the response.
 
-**That's it!** No AWS profiles, no IAM users, no complex setup.
+## 🚀 Quick Start (Claude / Anthropic API)
+
+If you have an API key from [console.anthropic.com](https://console.anthropic.com/) (separate from your Claude app login):
+
+```bash
+export ANTHROPIC_API_KEY=your-key   # or add to ~/.gudcommit.json
+export GUD_PROVIDER=anthropic        # or "provider": "anthropic" in config
+cd golang && make build
+git add . && ./bin/gudcommit
+```
+
+No AWS configuration needed.
+
+## 🚀 Quick Start (AWS Bedrock with aws login)
+
+### Prerequisites
+- AWS CLI v2.32.0 or later: `aws --version`
+- Go 1.21 or later
+
+### Setup (5 minutes)
+
+1. **Log in with AWS Console credentials**:
+```bash
+aws login --profile my-aws
+```
+
+2. **Configure credential_process** in `~/.aws/config`:
+```ini
+[profile Jornaya-Dev]
+login_session = arn:aws:sts::794223901232:assumed-role/AWS_ROLE/INUMBER@verisk.com
+
+[profile gudcommit]
+credential_process = aws configure export-credentials --profile Jornaya-Dev --format process
+region = us-east-1
+```
+
+3. **Build and use**:
+```bash
+cd golang && make build
+git add .
+./bin/gudcommit  # Automatically uses 'gudcommit' profile!
+```
+
+**That's it!** Credentials auto-refresh every 15 minutes (up to 12 hours max).
 
 ## 📋 Detailed Setup
 
-### Option 1: Automated Setup Script
-```bash
-# Run the interactive setup script
-./scripts/auto-api-key.sh setup
-```
+See the [QUICKSTART_AWS_LOGIN.md](golang/QUICKSTART_AWS_LOGIN.md) guide for complete instructions.
 
-### Option 2: Manual Setup
-1. **Generate API Key**: [Bedrock Console](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/api-keys)
-2. **Set Environment Variable**:
-   ```bash
-   export GUD_BEDROCK_API_KEY="your-key"
-   # Add to ~/.bashrc or ~/.zshrc for persistence
-   ```
-3. **Build and Test**:
-   ```bash
-   cd golang && make build
-   git add . && ./bin/gudcommit
-   ```
+### Alternative: Environment Variables
+
+If you prefer not to use `aws login`, you can use traditional credentials:
+
+```bash
+export AWS_ACCESS_KEY_ID=your-key-id
+export AWS_SECRET_ACCESS_KEY=your-secret-key
+export AWS_REGION=us-east-1
+cd golang && make build
+./bin/gudcommit
+```
 
 ## 🔧 Configuration
 
 ### JSON Config (recommended)
-You can configure model, timeout, and region without code changes using a JSON file:
 
-Order of precedence: environment variables > `~/.gudcommit.json` > `~/.gudchangelog.json` > defaults
+Use `~/.gudcommit.json` or `~/.gudchangelog.json`. Precedence: **env vars > ~/.gudcommit.json > ~/.gudchangelog.json > defaults**.
 
-Example `~/.gudcommit.json`:
+**Example – use Claude (Anthropic API):**
 ```json
 {
+  "provider": "anthropic",
+  "model_id": "claude-sonnet-4-20250514",
+  "timeout_seconds": 60
+}
+```
+Set `ANTHROPIC_API_KEY` in your environment (recommended) or add `"anthropic_api_key": "sk-ant-..."` to the config.
+
+**Example – use Claude CLI (your app/Code login):**
+```json
+{
+  "provider": "claude-cli",
+  "timeout_seconds": 120
+}
+```
+
+**Example – use AWS Bedrock:**
+```json
+{
+  "provider": "bedrock",
   "model_id": "anthropic.claude-3-5-sonnet-20240620-v1:0",
   "timeout_seconds": 60,
   "region": "us-east-1"
 }
 ```
 
-Defaults if not set:
-- `model_id`: `anthropic.claude-3-5-sonnet-20240620-v1:0`
-- `timeout_seconds`: `60`
-- `region`: `us-east-1`
+**Config options:**
 
-Environment variable overrides:
-- `GUD_BEDROCK_MODEL_ID`
-- `GUD_HTTP_TIMEOUT_SECONDS`
-- `AWS_REGION`
+| Option | claude-cli | Bedrock | Anthropic | Default |
+|--------|------------|---------|-----------|---------|
+| `provider` | `"claude-cli"` | `"bedrock"` | `"anthropic"` | `"bedrock"` |
+| `model_id` | (ignored) | Bedrock model ID or inference ARN | Anthropic model name | see above |
+| `timeout_seconds` | CLI timeout | Request timeout | Request timeout | `60` (claude-cli: 120) |
+| `region` | (ignored) | AWS region | (ignored) | `us-east-1` |
+| `anthropic_api_key` | (ignored) | (ignored) | API key (optional if env set) | — |
 
-API key (still required):
-- `GUD_BEDROCK_API_KEY` must be set (short‑term key from the Bedrock console)
+For `claude-cli`, ensure the `claude` binary is on your PATH, or set `GUD_CLAUDE_CLI_PATH` to its full path.
 
-### Automatic API Key Management
-The `scripts/auto-api-key.sh` helper provides:
-- **Generation**: Creates short-term API keys using AWS Bedrock token generator
-- **Credential storage**: Saves to `~/.gudcommit-credentials`
-- **Environment management**: Loads `GUD_BEDROCK_API_KEY` and `AWS_REGION`
-- **12-hour expiration**: Keys automatically expire for security
+**Environment overrides:**
+- `GUD_PROVIDER` – `bedrock`, `anthropic`, or `claude-cli`
+- `GUD_CLAUDE_CLI_PATH` – full path to `claude` binary (claude-cli only)
+- `ANTHROPIC_API_KEY` or `GUD_ANTHROPIC_API_KEY` – for Anthropic provider
+- `GUD_BEDROCK_MODEL_ID` / `GUD_ANTHROPIC_MODEL` – model ID/name
+- `GUD_HTTP_TIMEOUT_SECONDS` – timeout in seconds
+- `AWS_REGION`, `AWS_PROFILE` (Bedrock only; profile defaults to `gudcommit`)
 
-### Manual Configuration
-- `GUD_BEDROCK_API_KEY` (required): Your Bedrock API key
-- `AWS_REGION` (optional): AWS region (defaults to us-east-1)
+### AWS Credentials (Bedrock only)
+
+When `provider` is `bedrock`, gudcommit uses the standard AWS credential chain:
+- **NEW `aws login`** (recommended): Short-lived credentials with automatic rotation
+- `credential_process`: Enables `aws login` support in Go SDK v2
+- Environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- Shared credentials: `~/.aws/credentials`
+- Legacy AWS SSO: `aws sso login`
+- IAM roles (for EC2/ECS/Lambda)
+
+**Note**: API keys are **no longer needed**. The old `GUD_BEDROCK_API_KEY` method is deprecated.
 
 ## 📖 Usage
 
@@ -105,7 +190,17 @@ git add .
 ./golang/bin/gudchangelog develop
 ```
 
-### Discover available models/inference profiles
+### Discover available models/inference profiles (Bedrock only)
+
+**Important**: Newer Claude models (like Claude 4.5 Sonnet and Claude 3.5 Sonnet v2) require using **inference profile ARNs** instead of direct model IDs.
+
+Use the helper script to find available models and profiles:
+```bash
+./scripts/list-bedrock-models.sh
+```
+
+Or manually:
+
 List models that support direct on-demand invocation:
 ```bash
 aws bedrock list-foundation-models --region us-east-1 \
@@ -113,10 +208,20 @@ aws bedrock list-foundation-models --region us-east-1 \
   --output table
 ```
 
-List inference profiles (required for many Claude 3.5+ models):
+List inference profiles (required for newer Claude models):
 ```bash
 aws bedrock list-inference-profiles --region us-east-1 \
-  --query 'inferenceProfileSummaries[].{arn:inferenceProfileArn,name:inferenceProfileName,model:modelSource.type}'
+  --query 'inferenceProfileSummaries[].{Name:inferenceProfileName,ARN:inferenceProfileArn,Models:models[0].modelId}' \
+  --output table
+```
+
+**Using newer models**: For models that require inference profiles, use the ARN as your `model_id`:
+```json
+{
+  "model_id": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-5-v1:0",
+  "timeout_seconds": 60,
+  "region": "us-east-1"
+}
 ```
 
 ### Shell Aliases (Optional)
@@ -146,89 +251,112 @@ function gudco() {
 
 ## 🏗️ Architecture
 
-### New Implementation
-- **Direct Bedrock API calls** using HTTP requests
-- **API key authentication** (no AWS SDK required)
-- **Default model**: `anthropic.claude-3-5-sonnet-20240620-v1:0` (configurable)
+### Current Implementation (Go)
+- **Three providers**: **claude-cli** (Claude Code CLI), **Bedrock** (AWS), **Anthropic** (Claude API)
+- **claude-cli**: Runs `claude -p "..."`; uses your Claude app / Claude Code login; no API key or AWS
+- **Bedrock**: AWS SDK Go v2, SigV4, `aws login` via `credential_process`, default model `anthropic.claude-3-5-sonnet-20240620-v1:0`
+- **Anthropic**: HTTPS to `api.anthropic.com`, `ANTHROPIC_API_KEY`, default model `claude-sonnet-4-20250514`
 - **Conventional commit format** with structured JSON parsing
+- **Config**: `~/.gudcommit.json` / env vars; `provider` chooses backend
 
 ### Benefits
-✅ **No IAM users required**  
-✅ **No AWS profiles needed**  
-✅ **No AWS SDK dependencies**  
-✅ **Works anywhere with API key**  
-✅ **Better performance** (direct model calls)  
-✅ **Simpler setup** (just one environment variable)  
+✅ **Use Claude app/Claude Code** – set `provider: claude-cli` and use your existing login (no API key)  
+✅ **Or use AWS Bedrock** – `aws login` and automatic credential rotation  
+✅ **Or use Anthropic API** – `provider: anthropic` and `ANTHROPIC_API_KEY`  
+✅ **Single config** – switch providers without changing code  
+✅ **Cross-platform** (Linux, macOS, Windows)  
 
 ## 🔒 Security
 
-- **Never commit API keys to git**
-- **Use environment variables only**
-- **Regenerate keys regularly**
-- **Short-term keys are more secure**
+- ✅ **No long-lived credentials** - Use `aws login` for short-lived tokens
+- ✅ **Automatic rotation** - Credentials refresh every 15 minutes
+- ✅ **Standard AWS security** - Uses IAM policies and SigV4 signing
+- ✅ **Secure by default** - No API keys to accidentally commit
+- ⚠️ **Never commit AWS credentials** to git
 
 ## 🐛 Troubleshooting
 
-### API Key Issues
+### AWS Credential Issues
 
-#### "GUD_BEDROCK_API_KEY environment variable is not set"
+The tool will automatically display helpful setup instructions if credentials fail. Here are common issues:
+
+#### "no EC2 IMDS role found" or "failed to refresh cached credentials"
+
+This means AWS credentials are not properly configured. **gudcommit now displays setup instructions automatically**, but here's the quick fix:
+
+1. Ensure AWS CLI v2.32.0+: `aws --version`
+2. Log in: `aws login --profile my-aws`
+3. Configure `~/.aws/config`:
+```ini
+[profile my-aws]
+login_session = arn:aws:iam::123456789012:user/yourname
+region = us-east-1
+
+[profile gudcommit]
+credential_process = aws configure export-credentials --profile my-aws --format process
+region = us-east-1
+```
+4. Run: `gudcommit` (automatically uses `gudcommit` profile)
+
+#### "Unable to load AWS SDK config"
+
+- Check that `~/.aws/config` exists and has the `[profile gudcommit]` section
+- Verify `credential_process` is correctly configured
+- Test with: `aws sts get-caller-identity --profile gudcommit`
+
+#### "credential_process failed"
+
+Your login session may have expired (max 12 hours). Run:
 ```bash
-# Manual method
-export GUD_BEDROCK_API_KEY="your-key"
-
-# Automatic method
-./scripts/auto-api-key.sh generate
+aws login --profile my-aws
 ```
 
-#### "Bedrock API error: 403"
-- **API key expired**: Regenerate using `./scripts/auto-api-key.sh generate`
-- **Permissions**: Check Bedrock permissions in your AWS account
-- **Policy**: Ensure you have `AmazonBedrockLimitedAccess` policy attached
+### Claude CLI issues (`provider: claude-cli`)
 
-#### "Bedrock API error: 400"
-- **Request format**: Check request format (should be automatic)
-- **Region**: Verify AWS region is correct
+#### "claude CLI not found"
 
-### Automatic API Key Management Issues
+- Install [Claude Code](https://code.claude.com/) (the desktop app includes the `claude` command).
+- Ensure `claude` is on your PATH (e.g. run `claude --help` in a terminal).
+- Or set the full path: `export GUD_CLAUDE_CLI_PATH=/path/to/claude`
 
-#### "Python 3 not found"
+#### "claude CLI failed" or no output
+
+- Log in once: run `claude` in a terminal and complete any sign-in flow.
+- If the prompt is very long, consider using `bedrock` or `anthropic` instead (CLI may hit argument-length limits on some systems).
+
+### Alternative: Environment Variables
+
+**Bedrock:**
 ```bash
-# macOS
-brew install python3
-
-# Ubuntu
-sudo apt install python3 python3-pip
-
-# CentOS
-sudo yum install python3 python3-pip
+export AWS_ACCESS_KEY_ID=your-key-id
+export AWS_SECRET_ACCESS_KEY=your-secret-key
+export AWS_REGION=us-east-1
+gudcommit
 ```
 
-#### "AWS credentials not configured"
+**Claude CLI (use app/Code login):**
 ```bash
-# Configure AWS CLI
-aws configure
-
-# Or set environment variables
-export AWS_ACCESS_KEY_ID="your-key"
-export AWS_SECRET_ACCESS_KEY="your-secret"
+export GUD_PROVIDER=claude-cli
+gudcommit
 ```
 
-#### "aws-bedrock-token-generator not found"
+**Anthropic API:**
 ```bash
-# Install manually
-pip3 install aws-bedrock-token-generator
+export ANTHROPIC_API_KEY=your-key
+export GUD_PROVIDER=anthropic
+gudcommit
 ```
 
 ### Debug Commands
 ```bash
-# Check API key status
-./scripts/auto-api-key.sh status
+# Test AWS credentials
+aws sts get-caller-identity --profile gudcommit
 
-# Test key generation
-./scripts/auto-api-key.sh generate
+# Check AWS CLI version
+aws --version
 
-# Run in debug mode
-./scripts/auto-api-key.sh run --debug
+# Test credential_process
+aws configure export-credentials --profile my-aws --format process
 ```
 
 ## 📦 Releases & Downloads
@@ -254,18 +382,19 @@ sudo mv gudchangelog-<platform>-<arch> /usr/local/bin/gudchangelog
 ### From Source
 ```bash
 # Clone and build
-git clone git@github.com:gudlyf/GudCommit.git
-cd GudCommit
+git clone <repository-url>
+cd gudcommit
 cd golang && make build
 ```
 
 ## 📚 Documentation
 
+- **[Quick Start Guide](golang/QUICKSTART_AWS_LOGIN.md)** - 5-minute setup with `aws login`
+- **[AWS Login Support](golang/AWS_SSO_SUPPORT.md)** - Complete credential documentation
+- **[Go Implementation](golang/GO_IMPLEMENTATION_SUMMARY.md)** - Architecture details
 - [Conventional Commits](https://www.conventionalcommits.org/)
 - [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
-
-### Developer Documentation
-- [Go Implementation Summary](golang/GO_IMPLEMENTATION_SUMMARY.md) - Architecture and development details
+- [AWS Login Credentials](https://docs.aws.amazon.com/sdkref/latest/guide/feature-login-credentials.html)
 
 ## 🧪 Development & Testing
 
@@ -310,4 +439,11 @@ cd golang && make test
 
 ---
 
-**Note**: This version uses direct Bedrock model invocation with API keys, eliminating the need for complex AWS setup while maintaining all the functionality of the original GudCommit.
+## 🔄 Migration from API Keys
+
+**OLD METHOD (DEPRECATED)**: Using `GUD_BEDROCK_API_KEY` environment variable  
+**NEW METHOD**: Using `aws login` with automatic credential rotation
+
+The old scripts (`scripts/auto-api-key.sh`, `scripts/generate-api-key.py`) are **no longer needed**. The tool now uses standard AWS credentials with automatic rotation.
+
+See [QUICKSTART_AWS_LOGIN.md](golang/QUICKSTART_AWS_LOGIN.md) for migration instructions.

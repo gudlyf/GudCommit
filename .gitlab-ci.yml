@@ -80,6 +80,9 @@ Format Check:
       - golang/go.mod
     key: $CI_COMMIT_SHA
     policy: pull
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
 
 # Lint code with golangci-lint
 Lint:
@@ -101,6 +104,9 @@ Lint:
     key: $CI_COMMIT_SHA
     policy: pull
   allow_failure: false
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
 
 Test:
   stage: test
