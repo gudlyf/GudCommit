@@ -125,13 +125,11 @@ func TestUsage(t *testing.T) {
 }
 
 func TestClient(t *testing.T) {
+	// Test that the Client struct can be created with a Region
+	// Note: We don't test NewClient() here as it requires AWS credentials
+	// and would make network calls
 	client := &Client{
-		APIKey: "test-api-key",
 		Region: "us-east-1",
-	}
-
-	if client.APIKey != "test-api-key" {
-		t.Errorf("Expected APIKey 'test-api-key', got %s", client.APIKey)
 	}
 
 	if client.Region != "us-east-1" {

@@ -1,11 +1,11 @@
 # GudCommit - Go Version
 
-A Go implementation of the GudCommit tool for generating clean, conventional commit messages using AWS Bedrock.
+A Go implementation of the GudCommit tool for generating clean, conventional commit messages using Claude via **AWS Bedrock** or the **Anthropic API** (Claude app / Claude Code).
 
 ## Features
 
 - **Clean Output**: Generates conventional commit messages without extraneous text
-- **AWS Bedrock Integration**: Uses Claude Sonnet for intelligent commit message generation
+- **Dual provider**: **Bedrock** (AWS) or **Anthropic** (Claude API – same backend as Claude app and Claude Code)
 - **Git Integration**: Automatically detects staged changes
 - **Structured Response Parsing**: Handles both JSON and conventional commit formats
 - **Cross-Platform**: Builds for Linux, macOS, and Windows
@@ -14,9 +14,9 @@ A Go implementation of the GudCommit tool for generating clean, conventional com
 ## Prerequisites
 
 - Go 1.21 or later
-- AWS credentials configured (via AWS CLI, environment variables, or IAM roles)
+- **For Anthropic (Claude app/Claude Code)**: `ANTHROPIC_API_KEY` and `GUD_PROVIDER=anthropic` (or `"provider": "anthropic"` in config)
+- **For Bedrock**: AWS credentials (e.g. **NEW `aws login`**, env vars, or `~/.aws/credentials`)
 - Git repository with staged changes
-- Bedrock API key (generated via console or `scripts/auto-api-key.sh`)
 
 ## Installation
 
@@ -24,8 +24,8 @@ A Go implementation of the GudCommit tool for generating clean, conventional com
 
 ```bash
 # Clone the repository
-git clone git@github.com:gudlyf/GudCommit.git
-cd GudCommit/golang
+git clone <repository-url>
+cd gudcommit/golang
 
 # Download dependencies
 make deps
@@ -156,28 +156,79 @@ golang/
 
 ### Dependencies
 
-- `github.com/aws/aws-sdk-go-v2` - AWS SDK v2
-- `github.com/go-git/go-git/v5` - Git operations
-- `github.com/schollz/progressbar/v3` - Progress indicators
+- `github.com/aws/aws-sdk-go-v2` - AWS SDK v2 (with SSO support)
+- `github.com/aws/aws-sdk-go-v2/config` - AWS configuration loader
+- `github.com/aws/aws-sdk-go-v2/service/bedrockruntime` - Bedrock Runtime service
+- `github.com/aws/smithy-go` - Smithy Go SDK primitives
 
 ## Configuration
 
-### Environment Variables
+### AWS Credentials
 
-- `GUD_BEDROCK_API_KEY` (required): Your Bedrock API key
-- `AWS_REGION` (optional): AWS region (defaults to us-east-1)
+The tool uses the standard AWS credential chain. **NEW**: Now supports the `aws login` method!
 
-### API Key Generation
+#### NEW `aws login` Method (Recommended)
 
-Generate a Bedrock API key using the automated script:
+The new `aws login` command provides short-lived, auto-rotating credentials from your AWS Console login.
+
+**Important**: AWS SDK for Go v2 requires the `credential_process` workaround for `aws login` support.
+
+1. Log in:
+```bash
+aws login --profile my-login-profile
+```
+
+2. Configure `credential_process` in `~/.aws/config`:
+```ini
+[profile my-login-profile]
+login_session = arn:aws:iam::123456789012:user/username
+region = us-east-1
+
+[profile my-app]
+credential_process = aws configure export-credentials --profile my-login-profile --format process
+region = us-east-1
+```
+
+3. Run gudcommit:
+```bash
+gudcommit  # Automatically uses 'gudcommit' profile by default
+```
+
+Or use a different profile:
+```bash
+export AWS_PROFILE=my-app
+gudcommit
+```
+
+Credentials auto-refresh every 15 minutes (via AWS CLI) for up to 12 hours.
+
+**Note**: gudcommit defaults to using the `gudcommit` profile from `~/.aws/config`, so you don't need to set `AWS_PROFILE` unless you want to use a different profile.
+
+#### Environment Variables
 
 ```bash
-# Generate API key using AWS Bedrock token generator
-./scripts/auto-api-key.sh generate
-
-# Or manually from AWS Console
-# https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/api-keys
+export AWS_ACCESS_KEY_ID=your-key
+export AWS_SECRET_ACCESS_KEY=your-secret
+export AWS_SESSION_TOKEN=your-token  # if using temporary credentials
+export AWS_REGION=us-east-1
 ```
+
+#### Shared Credentials File
+
+Configure `~/.aws/credentials`:
+```ini
+[default]
+aws_access_key_id = your-key
+aws_secret_access_key = your-secret
+```
+
+For complete details on `aws login` and other methods, see [AWS_SSO_SUPPORT.md](./AWS_SSO_SUPPORT.md).
+
+### Environment Variables
+
+- `AWS_REGION` (optional): AWS region (defaults to us-east-1)
+- `GUD_BEDROCK_MODEL_ID` (optional): Override the default model ID
+- `GUD_HTTP_TIMEOUT_SECONDS` (optional): Override the default timeout (60 seconds)
 
 ### JSON Configuration (Optional)
 
@@ -221,9 +272,14 @@ The Go version offers several performance advantages:
 
 ### Common Issues
 
-1. **AWS Authentication**: Ensure your AWS credentials are configured (via `aws configure` or environment variables)
+1. **AWS Authentication**: 
+   - **NEW `aws login`**: Ensure AWS CLI v2.32.0+, run `aws login --profile your-profile`, and use `credential_process` workaround
+   - **Environment variables**: Ensure `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are set
+   - **Legacy AWS SSO**: Ensure you're logged in: `aws sso login --profile your-profile`
+   - Check that your credentials have access to AWS Bedrock
 2. **Git Repository**: Make sure you're in a git repository with staged changes
-3. **SSM Parameters**: Verify that the required SSM parameters exist in your AWS account
+3. **Region**: Verify that AWS Bedrock is available in your configured region (defaults to us-east-1)
+4. **credential_process errors**: Verify AWS CLI is in PATH and test with `aws configure export-credentials --profile your-profile --format process`
 
 ### Debug Mode
 

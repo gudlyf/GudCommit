@@ -66,9 +66,9 @@ func executeGitCommitEdit(message string) error {
 	return cmd.Run()
 }
 
-// invokeBedrockModel invokes Bedrock using the shared package
-func invokeBedrockModel(prompt, repoPath string) (string, error) {
-	client, err := bedrock.NewClient()
+// invokeLLM invokes the configured LLM provider (Bedrock or Anthropic/Claude)
+func invokeLLM(prompt, repoPath string) (string, error) {
+	invoker, err := bedrock.NewInvoker()
 	if err != nil {
 		return "", err
 	}
@@ -121,7 +121,7 @@ Rules:
 - Do not include any explanatory text outside the JSON
 - Each changed file should have its own commit entry`, repoPath, prompt)
 
-	return client.InvokeModel(fullPrompt, repoPath)
+	return invoker.InvokeModel(fullPrompt, repoPath)
 }
 
 // parseCommitResponse parses the response from Bedrock and returns formatted commit messages
@@ -234,7 +234,7 @@ func run() error {
 
 	// Generate commit message
 	fmt.Println("🤖 Generating commit message...")
-	completion, err := invokeBedrockModel(diffOutput, repoPath)
+	completion, err := invokeLLM(diffOutput, repoPath)
 	if err != nil {
 		return fmt.Errorf("failed to invoke Bedrock model: %w", err)
 	}

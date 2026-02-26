@@ -1,34 +1,56 @@
-## 2.0.0
+## 2.3.0
 
 ### Added
-- Go implementation of GudCommit and GudChangelog tools
-- CI/CD pipeline with GitHub Actions for building, testing, and releasing
-- Cross-platform build support for Linux, macOS, and Windows
-- API key authentication for Bedrock model invocation
-- JSON configuration file support for customizing model and timeout settings
-- Automatic API key management script for improved user experience
-- Comprehensive test suite for Go implementation
-- GitLab CI configuration for alternative CI/CD setup
+- **Multiple LLM providers**: Choose backend via `provider` in config or `GUD_PROVIDER` env:
+  - **`claude-cli`** – Runs the `claude` CLI (`claude -p "..."`); uses your existing Claude app / Claude Code login; no API key or AWS. Requires [Claude Code](https://code.claude.com/) on PATH (or `GUD_CLAUDE_CLI_PATH`).
+  - **`anthropic`** – Anthropic API with `ANTHROPIC_API_KEY` (or `anthropic_api_key` in config); same models as Claude app, separate billing at console.anthropic.com.
+  - **`bedrock`** (default) – AWS Bedrock with `aws login` or other AWS credentials.
+- Config aliases: `provider: "claude"` or `"claude_cli"` normalize to `claude-cli`; `"anthropic-api"` / `"api"` to `anthropic`.
+- **claude-cli**: Minimum timeout 90 seconds so shared configs with short timeouts don't kill the CLI before it responds.
 
 ### Changed
-- Migrated from JavaScript to Go for improved performance and portability
-- Replaced AWS SDK and Bedrock agents with direct HTTP requests to Bedrock API
-- Updated project structure to support Go modules and packages
-- Improved error handling and fallback mechanisms in Go implementation
-- Refactored README with detailed setup and usage instructions for Go version
-- Updated CHANGELOG format to be more detailed and follow Keep a Changelog conventions
-- Simplified authentication process by using API keys instead of AWS credentials
-
-### Removed
-- JavaScript implementation of GudCommit and GudChangelog
-- Terraform configurations for Bedrock agents
-- AWS SDK dependencies and related configuration
-- Node.js package management files (package.json, package-lock.json)
-- GNU General Public License (replaced with new licensing, not specified in diff)
+- **Config**: New `provider` and optional `anthropic_api_key`; `LoadConfig()` is now exported for use by provider factory.
+- **Invoker**: `NewInvoker()` returns the configured provider (Bedrock, Anthropic, or Claude CLI) based on config.
+- README: Provider comparison table, Quick Start for Claude CLI and Anthropic API, "Claude app vs API" explanation, troubleshooting for claude-cli.
 
 ---
 
-## [Unreleased]
+## 2.2.1
+
+### Added
+- Go implementation of GudCommit tool
+- Support for cross-platform builds
+- Comprehensive test suite
+- **NEW**: Support for `aws login` credentials (AWS CLI v2.32.0+) with automatic 15-minute token rotation
+- Support for multiple AWS credential providers via `credential_process`, environment variables, shared credentials, legacy SSO, and IAM roles
+- **Automatic profile defaulting**: gudcommit/gudchangelog now default to using `gudcommit` profile (no need to set `AWS_PROFILE`)
+- **Helpful error messages**: Automatic display of setup instructions when credentials fail, including:
+  - How to configure `~/.aws/config` with `credential_process`
+  - Step-by-step `aws login` setup guide
+  - Alternative credential methods
+  - Troubleshooting for common errors (IMDS, credential_process failures, etc.)
+- Quick start guide: `golang/QUICKSTART_AWS_LOGIN.md`
+- Comprehensive AWS login documentation: `golang/AWS_SSO_SUPPORT.md`
+
+### Changed
+- Migrated from JavaScript to Go for better performance and portability
+- Improved error handling and fallback mechanisms
+- **BREAKING**: Migrated from custom API key authentication to AWS SDK v2 with SigV4 signing
+- **DEPRECATED**: `GUD_BEDROCK_API_KEY` environment variable and API key generation scripts are no longer needed
+- Replaced `GUD_BEDROCK_API_KEY` with standard AWS credential chain
+- Updated to use AWS SDK Go v2 (v1.30.5)
+- Enhanced credential error messages with helpful troubleshooting guidance
+- Added `credential_process` support to enable new `aws login` method (workaround for Go SDK v2 limitation)
+- Updated main README with new `aws login` instructions and deprecated API key methods
+- Client now defaults to `gudcommit` profile if `AWS_PROFILE` not set
+- Added debug logging for configuration file loading to help troubleshoot config issues
+- Added helper script `scripts/list-bedrock-models.sh` to discover available models and inference profiles
+- Added documentation about using inference profile ARNs for newer Claude models
+
+### Removed
+- **DEPRECATED**: Old API key generation scripts (`scripts/auto-api-key.sh`, `scripts/generate-api-key.py`) are no longer needed
+
+---
 
 ### Added
 - Added `ora` package for terminal spinner/progress indicator
@@ -43,8 +65,6 @@
 The changes were made to improve the user experience by providing visual feedback while waiting for Bedrock's response, and to enhance error handling. Additionally, the AWS provider version was updated, and a new variable was added to the Terraform module to allow specifying the AWS profile for Bedrock.
 
 ---
-
-## [Unreleased]
 
 ## Added
 

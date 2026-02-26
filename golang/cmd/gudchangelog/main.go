@@ -35,9 +35,9 @@ func getGitDiff(targetBranch string) (string, error) {
 	return string(output), nil
 }
 
-// invokeBedrockModel invokes Bedrock directly using API key authentication
-func invokeBedrockModel(prompt, repoPath string) (string, error) {
-	client, err := bedrock.NewClient()
+// invokeLLM invokes the configured LLM provider (Bedrock or Anthropic/Claude)
+func invokeLLM(prompt, repoPath string) (string, error) {
+	invoker, err := bedrock.NewInvoker()
 	if err != nil {
 		return "", err
 	}
@@ -88,7 +88,7 @@ Rules:
 - Do not include any explanatory text outside the JSON
 - Each category should contain meaningful entries`, repoPath, prompt)
 
-	return client.InvokeModel(fullPrompt, repoPath)
+	return invoker.InvokeModel(fullPrompt, repoPath)
 }
 
 // parseChangelogResponse parses the response from Bedrock and returns formatted changelog entries
@@ -175,7 +175,7 @@ func run() error {
 
 	// Generate changelog
 	fmt.Println("🤖 Generating changelog...")
-	completion, err := invokeBedrockModel(diffOutput, repoPath)
+	completion, err := invokeLLM(diffOutput, repoPath)
 	if err != nil {
 		return fmt.Errorf("failed to invoke Bedrock model: %w", err)
 	}

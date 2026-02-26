@@ -21,7 +21,9 @@ linters:
     - staticcheck
     - unused
     - typecheck
-  disable: []
+  disable:
+    - deadcode
+    - varcheck
 
 issues:
   exclude-rules:
