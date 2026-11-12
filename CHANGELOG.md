@@ -1,4 +1,4 @@
-## [Unreleased]
+## 2.4.0
 
 ### Security
 - **Config no longer leaks API keys**: removed the stderr dump of `~/.gudcommit.json` (which included `anthropic_api_key`). Diagnostics are opt-in via `GUD_DEBUG=1` and never include secrets. Warns when a key-bearing config file is group/world-readable.
