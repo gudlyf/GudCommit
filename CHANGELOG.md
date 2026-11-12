@@ -1,10 +1,17 @@
-## [Unreleased]
+## 2.4.1
+
+### Fixed
+- **Default models were retired**, so the `bedrock` and `anthropic` providers failed unless `model_id` was set. Defaults are now Claude Opus 5.5: `us.anthropic.claude-opus-5-5` (Bedrock inference profile) and `claude-opus-5-5` (Anthropic API).
+- Responses are read by content-block type, not position, so a leading thinking block from current models no longer yields an empty commit message on Bedrock.
+- `max_tokens` raised from 2048 to 16000 because thinking counts toward it; `refusal` and `max_tokens` stop reasons now produce clear errors instead of empty or truncated output.
+- Bedrock helper script and docs show current model IDs.
 
 ### Changed
 - **Bedrock: `aws login` works natively.** The AWS SDK now reads `login_session` profiles directly, so the `credential_process` workaround and its second profile are no longer needed. Setup is `aws login --profile gudcommit --region us-east-1`.
 - AWS credential error messages are shorter and name the profile in use, with the exact `aws login` command to fix it.
 - AWS docs consolidated into `golang/QUICKSTART_AWS_LOGIN.md`; `golang/AWS_SSO_SUPPORT.md` removed. README no longer contains a real account ARN.
 - `golang/README.md`: correct debug variable (`GUD_DEBUG`, not `DEBUG`) and minimum Go version (1.24).
+- Dependencies: AWS SDK for Go v2 1.47.8 (config 1.33.16, bedrockruntime 1.63.12), smithy-go 1.28.8; GitHub Actions checkout v7, setup-go v7, upload-artifact v7, download-artifact v8 (hash mismatches now fail), action-gh-release v3.
 
 ### Removed
 - `.gitlab-ci.yml` (the project builds and releases on GitHub Actions).

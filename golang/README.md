@@ -191,7 +191,7 @@ Create `~/.gudcommit.json` for custom settings:
 
 ```json
 {
-  "model_id": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+  "model_id": "us.anthropic.claude-opus-5-5",
   "timeout_seconds": 60,
   "region": "us-east-1"
 }

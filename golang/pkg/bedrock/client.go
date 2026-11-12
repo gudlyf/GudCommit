@@ -33,8 +33,9 @@ type Message struct {
 
 // BedrockResponse represents the response from Bedrock
 type BedrockResponse struct {
-	Content []ContentBlock `json:"content"`
-	Usage   Usage          `json:"usage"`
+	Content    []ContentBlock `json:"content"`
+	StopReason string         `json:"stop_reason"`
+	Usage      Usage          `json:"usage"`
 }
 
 // ContentBlock represents a content block in the response
@@ -147,7 +148,7 @@ func (c *Client) InvokeModel(prompt, repoPath string) (string, error) {
 	// Create the request payload for Claude
 	payload := BedrockRequest{
 		AnthropicVersion: "bedrock-2023-05-31",
-		MaxTokens:        2048,
+		MaxTokens:        defaultMaxTokens,
 		Messages: []Message{
 			{
 				Role:    "user",
@@ -235,13 +236,12 @@ func (c *Client) InvokeModel(prompt, repoPath string) (string, error) {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	// Extract the content from Claude's response
-	if len(response.Content) > 0 {
-		fmt.Print("✔ :: Response received from Bedrock\n")
-		return response.Content[0].Text, nil
+	text, err := extractText("Bedrock", response.StopReason, response.Content)
+	if err != nil {
+		return "", err
 	}
-
-	return "", fmt.Errorf("no content in response")
+	fmt.Print("✔ :: Response received from Bedrock\n")
+	return text, nil
 }
 
 // enhanceCredentialError explains how to fix missing or expired AWS credentials.

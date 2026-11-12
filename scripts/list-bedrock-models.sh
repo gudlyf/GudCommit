@@ -37,14 +37,12 @@ echo "========================================="
 echo "Usage Examples:"
 echo "========================================="
 echo ""
-echo "1. For older models (works with direct model ID):"
-echo '   model_id: "anthropic.claude-3-5-sonnet-20240620-v1:0"'
+echo "1. Current Claude models are invoked through an inference profile."
+echo '   Use an ID from the "Inference Profiles" list above as model_id,'
+echo '   with the prefix for your region (us., eu., apac., or global.).'
+echo '   Example (default): "us.anthropic.claude-opus-5-5"'
 echo ""
-echo "2. For newer models (requires inference profile ARN):"
-echo '   Find the ARN from the list above and use it as model_id'
-echo '   Example: "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-sonnet-4-5-v1:0"'
-echo ""
-echo "3. Add to ~/.gudcommit.json:"
+echo "2. Add to ~/.gudcommit.json:"
 echo "   {"
 echo '     "model_id": "your-model-id-or-arn-here",'
 echo '     "timeout_seconds": 60,'
