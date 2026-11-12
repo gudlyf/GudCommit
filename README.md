@@ -8,7 +8,7 @@ GudCommit generates clean, conventional commit messages and GudChangelog creates
 |----------|----------|--------|
 | **`claude-cli`** | Claude app / Claude Code users; no API key or AWS | Install [Claude Code](https://code.claude.com/) (includes `claude` CLI), then set `"provider": "claude-cli"` |
 | **`anthropic`** | No AWS; you have an API key from console.anthropic.com | Set `ANTHROPIC_API_KEY` and `"provider": "anthropic"` |
-| **`bedrock`** (default) | AWS accounts, `aws login` | Configure AWS credentials (e.g. `aws login` + `credential_process`) |
+| **`bedrock`** (default) | AWS accounts, `aws login` | `aws login --profile gudcommit` (or any AWS credentials) |
 
 - **`claude-cli`** – Runs the `claude` CLI (`claude -p "..."`) so it uses **your existing Claude app or Claude Code login**. No API key and no separate console.anthropic.com account.
 - **`anthropic`** – Calls the Anthropic API; requires an API key from [console.anthropic.com](https://console.anthropic.com/) and separate pay-as-you-go billing.
@@ -60,37 +60,28 @@ No AWS configuration needed.
 
 ### Prerequisites
 - AWS CLI v2.32.0 or later: `aws --version`
-- Go 1.21 or later
+- Go 1.24 or later (to build from source)
 
-### Setup (5 minutes)
+### Setup
 
-1. **Log in with AWS Console credentials**:
+1. **Log in** (creates the `gudcommit` profile, which the tools use by default):
 ```bash
-aws login --profile my-aws
+aws login --profile gudcommit --region us-east-1
+aws sts get-caller-identity --profile gudcommit   # confirm it works
 ```
 
-2. **Configure credential_process** in `~/.aws/config`:
-```ini
-[profile Jornaya-Dev]
-login_session = arn:aws:sts::794223901232:assumed-role/AWS_ROLE/INUMBER@verisk.com
-
-[profile gudcommit]
-credential_process = aws configure export-credentials --profile Jornaya-Dev --format process
-region = us-east-1
-```
-
-3. **Build and use**:
+2. **Build and use**:
 ```bash
 cd golang && make build
 git add .
-./bin/gudcommit  # Automatically uses 'gudcommit' profile!
+./bin/gudcommit
 ```
 
-**That's it!** Credentials auto-refresh every 15 minutes (up to 12 hours max).
+To use a profile you already log in with, set `AWS_PROFILE=<profile>` instead. Credentials refresh automatically while your login session is valid (up to 12 hours).
 
 ## 📋 Detailed Setup
 
-See the [QUICKSTART_AWS_LOGIN.md](golang/QUICKSTART_AWS_LOGIN.md) guide for complete instructions.
+See [golang/QUICKSTART_AWS_LOGIN.md](golang/QUICKSTART_AWS_LOGIN.md) for other credential sources (SSO, assumed roles, env vars) and troubleshooting.
 
 ### Alternative: Environment Variables
 
@@ -165,13 +156,10 @@ If you put `anthropic_api_key` in `~/.gudcommit.json`, restrict it with `chmod 6
 
 ### AWS Credentials (Bedrock only)
 
-When `provider` is `bedrock`, gudcommit uses the standard AWS credential chain:
-- **NEW `aws login`** (recommended): Short-lived credentials with automatic rotation
-- `credential_process`: Enables `aws login` support in Go SDK v2
-- Environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
-- Shared credentials: `~/.aws/credentials`
-- Legacy AWS SSO: `aws sso login`
-- IAM roles (for EC2/ECS/Lambda)
+When `provider` is `bedrock`, gudcommit uses the standard AWS SDK credential chain with the `gudcommit` profile (or `AWS_PROFILE`):
+- `aws login` (recommended): short-lived credentials that refresh automatically; read natively by the SDK
+- IAM Identity Center (SSO): `aws sso login`
+- Assumed roles, environment variables, `~/.aws/credentials`, and IAM roles on EC2/ECS/Lambda
 
 **Note**: API keys are **no longer needed**. The old `GUD_BEDROCK_API_KEY` method is deprecated.
 
@@ -259,7 +247,7 @@ function gudco() {
 ### Current Implementation (Go)
 - **Three providers**: **claude-cli** (Claude Code CLI), **Bedrock** (AWS), **Anthropic** (Claude API)
 - **claude-cli**: Runs `claude -p "..."`; uses your Claude app / Claude Code login; no API key or AWS
-- **Bedrock**: AWS SDK Go v2, SigV4, `aws login` via `credential_process`, default model `anthropic.claude-3-5-sonnet-20240620-v1:0`
+- **Bedrock**: AWS SDK Go v2, SigV4, native `aws login` support, default model `anthropic.claude-3-5-sonnet-20240620-v1:0`
 - **Anthropic**: HTTPS to `api.anthropic.com`, `ANTHROPIC_API_KEY`, default model `claude-sonnet-4-20250514`
 - **Conventional commit format** with structured JSON parsing
 - **Config**: `~/.gudcommit.json` / env vars; `provider` chooses backend
@@ -297,38 +285,22 @@ gh attestation verify gudcommit-darwin-arm64 --repo gudlyf/GudCommit
 
 ### AWS Credential Issues
 
-The tool will automatically display helpful setup instructions if credentials fail. Here are common issues:
+If credentials fail, the error message names the profile in use and how to fix it.
 
-#### "no EC2 IMDS role found" or "failed to refresh cached credentials"
+#### "AWS credential error" or "authorization grant is invalid, expired, revoked, or malformed"
 
-This means AWS credentials are not properly configured. **gudcommit now displays setup instructions automatically**, but here's the quick fix:
-
-1. Ensure AWS CLI v2.32.0+: `aws --version`
-2. Log in: `aws login --profile my-aws`
-3. Configure `~/.aws/config`:
-```ini
-[profile my-aws]
-login_session = arn:aws:iam::123456789012:user/yourname
-region = us-east-1
-
-[profile gudcommit]
-credential_process = aws configure export-credentials --profile my-aws --format process
-region = us-east-1
-```
-4. Run: `gudcommit` (automatically uses `gudcommit` profile)
-
-#### "Unable to load AWS SDK config"
-
-- Check that `~/.aws/config` exists and has the `[profile gudcommit]` section
-- Verify `credential_process` is correctly configured
-- Test with: `aws sts get-caller-identity --profile gudcommit`
-
-#### "credential_process failed"
-
-Your login session may have expired (max 12 hours). Run:
+Your `aws login` session expired (max 12 hours). Log in again:
 ```bash
-aws login --profile my-aws
+aws login --profile gudcommit
 ```
+
+#### "unable to load AWS configuration" / "failed to get shared config profile, gudcommit"
+
+The `gudcommit` profile doesn't exist. Create it with `aws login --profile gudcommit --region us-east-1`, or set `AWS_PROFILE` to a profile you use.
+
+#### Wrong identity or account
+
+Static keys take precedence over `aws login`. If `~/.aws/credentials` has a section with the same profile name, or `AWS_ACCESS_KEY_ID` is set, those are used instead. Check with `aws sts get-caller-identity --profile gudcommit`.
 
 ### Claude CLI issues (`provider: claude-cli`)
 
@@ -368,14 +340,14 @@ gudcommit
 
 ### Debug Commands
 ```bash
-# Test AWS credentials
+# Which AWS identity will be used
 aws sts get-caller-identity --profile gudcommit
 
-# Check AWS CLI version
-aws --version
+# Is the profile set up for aws login?
+aws configure get login_session --profile gudcommit
 
-# Test credential_process
-aws configure export-credentials --profile my-aws --format process
+# Check AWS CLI version (needs 2.32.0+ for aws login)
+aws --version
 ```
 
 ## 📦 Releases & Downloads
@@ -408,8 +380,7 @@ cd golang && make build
 
 ## 📚 Documentation
 
-- **[Quick Start Guide](golang/QUICKSTART_AWS_LOGIN.md)** - 5-minute setup with `aws login`
-- **[AWS Login Support](golang/AWS_SSO_SUPPORT.md)** - Complete credential documentation
+- **[AWS Credentials Guide](golang/QUICKSTART_AWS_LOGIN.md)** - `aws login` setup, other credential sources, troubleshooting
 - **[Go Implementation](golang/GO_IMPLEMENTATION_SUMMARY.md)** - Architecture details
 - [Conventional Commits](https://www.conventionalcommits.org/)
 - [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
@@ -465,4 +436,4 @@ cd golang && make test
 
 The old API key scripts (`scripts/auto-api-key.sh`, `scripts/generate-api-key.py`) have been removed. The tool now uses standard AWS credentials with automatic rotation. If you used them, delete the leftover key file: `rm ~/.gudcommit-credentials`.
 
-See [QUICKSTART_AWS_LOGIN.md](golang/QUICKSTART_AWS_LOGIN.md) for migration instructions.
+See [QUICKSTART_AWS_LOGIN.md](golang/QUICKSTART_AWS_LOGIN.md) to set up `aws login`.

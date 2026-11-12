@@ -1,3 +1,17 @@
+## [Unreleased]
+
+### Changed
+- **Bedrock: `aws login` works natively.** The AWS SDK now reads `login_session` profiles directly, so the `credential_process` workaround and its second profile are no longer needed. Setup is `aws login --profile gudcommit --region us-east-1`.
+- AWS credential error messages are shorter and name the profile in use, with the exact `aws login` command to fix it.
+- AWS docs consolidated into `golang/QUICKSTART_AWS_LOGIN.md`; `golang/AWS_SSO_SUPPORT.md` removed. README no longer contains a real account ARN.
+- `golang/README.md`: correct debug variable (`GUD_DEBUG`, not `DEBUG`) and minimum Go version (1.24).
+
+### Removed
+- `.gitlab-ci.yml` (the project builds and releases on GitHub Actions).
+- `build.env` is no longer published as a release asset.
+
+---
+
 ## 2.4.0
 
 ### Security

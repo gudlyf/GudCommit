@@ -53,6 +53,7 @@ type Usage struct {
 type Client struct {
 	bedrockClient *bedrockruntime.Client
 	Region        string
+	Profile       string
 }
 
 // NewClient creates a new Bedrock client using AWS SDK with login credentials support
@@ -72,22 +73,10 @@ func NewClient() (*Client, error) {
 		profile = "gudcommit"
 	}
 
-	// Load AWS configuration
-	// This automatically handles the AWS credential chain:
-	// - Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN)
-	// - credential_process (supports new 'aws login' via CLI delegation)
-	// - Shared credentials file (~/.aws/credentials)
-	// - AWS SSO credentials (legacy aws sso login)
-	// - IAM roles
-	// - EC2 instance metadata
-	//
-	// For new 'aws login' support:
-	// 1. Run: aws login --profile your-login
-	// 2. Configure credential_process in ~/.aws/config
-	// 3. SDK v2 will use credentials via credential_process workaround
-	//
-	// Note: Go SDK v2 doesn't natively support login_session yet, but works
-	// via credential_process delegation to AWS CLI
+	// Load AWS configuration using the standard credential chain: environment
+	// variables, static keys, `aws login` (login_session), IAM Identity Center
+	// (SSO), assumed roles, credential_process, and container/instance roles.
+	// See golang/QUICKSTART_AWS_LOGIN.md.
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(region),
 		config.WithSharedConfigProfile(profile),
@@ -104,59 +93,21 @@ func NewClient() (*Client, error) {
 	return &Client{
 		bedrockClient: bedrockClient,
 		Region:        region,
+		Profile:       profile,
 	}, nil
 }
 
-// enhanceConfigError provides helpful setup instructions when AWS config fails
+// enhanceConfigError explains how to set up AWS credentials when config loading fails.
 func enhanceConfigError(err error, profile, region string) error {
-	return fmt.Errorf(`unable to load AWS credentials
+	return fmt.Errorf(`unable to load AWS configuration (profile %q, region %q)
 
-Current profile: %s
-Current region: %s
+Set up the profile with aws login (AWS CLI v2.32.0+):
+  aws login --profile %s --region %s
 
-AWS credentials are not properly configured. Please set up credentials using one of these methods:
+Or use another profile:  export AWS_PROFILE=<profile>
+See golang/QUICKSTART_AWS_LOGIN.md for other credential options.
 
-Method 1: NEW aws login (Recommended)
-----------------------------------------
-1. Ensure AWS CLI v2.32.0 or later:
-   aws --version
-
-2. Log in with your AWS Console credentials:
-   aws login --profile my-aws
-
-3. Configure ~/.aws/config with credential_process:
-
-   [profile my-aws]
-   login_session = arn:aws:iam::123456789012:user/yourname
-   region = %s
-
-   [profile gudcommit]
-   credential_process = aws configure export-credentials --profile my-aws --format process
-   region = %s
-
-4. Test it:
-   export AWS_PROFILE=gudcommit  # or let gudcommit use it by default
-   aws sts get-caller-identity
-
-5. Run gudcommit:
-   gudcommit
-
-Method 2: Environment Variables
----------------------------------
-export AWS_ACCESS_KEY_ID=your-key-id
-export AWS_SECRET_ACCESS_KEY=your-secret-key
-export AWS_REGION=%s
-gudcommit
-
-Method 3: Shared Credentials (~/.aws/credentials)
----------------------------------------------------
-[default]
-aws_access_key_id = your-key-id
-aws_secret_access_key = your-secret-key
-
-For more help, see: golang/QUICKSTART_AWS_LOGIN.md
-
-Original error: %v`, profile, region, region, region, region, err)
+Original error: %w`, profile, region, profile, region, err)
 }
 
 // Invoker is the common interface for any LLM provider (Bedrock or Anthropic).
@@ -259,7 +210,7 @@ func (c *Client) InvokeModel(prompt, repoPath string) (string, error) {
 		if errors.As(err, &apiErr) {
 			if apiErr.ErrorCode() == "UnrecognizedClientException" ||
 				apiErr.ErrorCode() == "InvalidSignatureException" {
-				return "", enhanceCredentialError(err)
+				return "", enhanceCredentialError(err, c.Profile)
 			}
 		}
 
@@ -272,7 +223,7 @@ func (c *Client) InvokeModel(prompt, repoPath string) (string, error) {
 			"no valid providers",
 			"credential_process",
 		}) {
-			return "", enhanceCredentialError(err)
+			return "", enhanceCredentialError(err, c.Profile)
 		}
 
 		return "", fmt.Errorf("failed to invoke Bedrock model: %w", err)
@@ -293,46 +244,17 @@ func (c *Client) InvokeModel(prompt, repoPath string) (string, error) {
 	return "", fmt.Errorf("no content in response")
 }
 
-// enhanceCredentialError provides helpful instructions for credential errors
-func enhanceCredentialError(err error) error {
-	return fmt.Errorf(`AWS credential error detected
+// enhanceCredentialError explains how to fix missing or expired AWS credentials.
+func enhanceCredentialError(err error, profile string) error {
+	return fmt.Errorf(`AWS credential error (profile %q): credentials are missing or expired
 
-The error suggests your AWS credentials are not properly configured or have expired.
+If you use aws login, sign in again:
+  aws login --profile %s
 
-Quick Fix - Using NEW aws login:
----------------------------------
-1. Check AWS CLI version (need v2.32.0+):
-   aws --version
+Check which identity is used:  aws sts get-caller-identity --profile %s
+See golang/QUICKSTART_AWS_LOGIN.md for other credential options.
 
-2. Log in:
-   aws login --profile my-aws
-
-3. Add this to ~/.aws/config:
-
-   [profile my-aws]
-   login_session = arn:aws:iam::123456789012:user/yourname
-   region = us-east-1
-
-   [profile gudcommit]
-   credential_process = aws configure export-credentials --profile my-aws --format process
-   region = us-east-1
-
-4. Test it:
-   aws sts get-caller-identity --profile gudcommit
-
-5. Run gudcommit (no need to set AWS_PROFILE, defaults to gudcommit):
-   gudcommit
-
-Alternative - Environment Variables:
--------------------------------------
-export AWS_ACCESS_KEY_ID=your-key-id
-export AWS_SECRET_ACCESS_KEY=your-secret-key
-export AWS_REGION=us-east-1
-gudcommit
-
-For detailed help: golang/QUICKSTART_AWS_LOGIN.md
-
-Original error: %v`, err)
+Original error: %w`, profile, profile, profile, err)
 }
 
 // containsAny checks if a string contains any of the given substrings

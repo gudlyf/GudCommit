@@ -13,9 +13,9 @@ A Go implementation of the GudCommit tool for generating clean, conventional com
 
 ## Prerequisites
 
-- Go 1.21 or later
+- Go 1.24 or later
 - **For Anthropic (Claude app/Claude Code)**: `ANTHROPIC_API_KEY` and `GUD_PROVIDER=anthropic` (or `"provider": "anthropic"` in config)
-- **For Bedrock**: AWS credentials (e.g. **NEW `aws login`**, env vars, or `~/.aws/credentials`)
+- **For Bedrock**: AWS credentials (`aws login` recommended; any AWS SDK credential source works)
 - Git repository with staged changes
 
 ## Installation
@@ -165,64 +165,16 @@ golang/
 
 ### AWS Credentials
 
-The tool uses the standard AWS credential chain. **NEW**: Now supports the `aws login` method!
+The tool uses the standard AWS SDK credential chain, which reads `aws login` sessions natively. It uses the `gudcommit` profile unless `AWS_PROFILE` is set.
 
-#### NEW `aws login` Method (Recommended)
-
-The new `aws login` command provides short-lived, auto-rotating credentials from your AWS Console login.
-
-**Important**: AWS SDK for Go v2 requires the `credential_process` workaround for `aws login` support.
-
-1. Log in:
 ```bash
-aws login --profile my-login-profile
-```
-
-2. Configure `credential_process` in `~/.aws/config`:
-```ini
-[profile my-login-profile]
-login_session = arn:aws:iam::123456789012:user/username
-region = us-east-1
-
-[profile my-app]
-credential_process = aws configure export-credentials --profile my-login-profile --format process
-region = us-east-1
-```
-
-3. Run gudcommit:
-```bash
-gudcommit  # Automatically uses 'gudcommit' profile by default
-```
-
-Or use a different profile:
-```bash
-export AWS_PROFILE=my-app
+aws login --profile gudcommit --region us-east-1   # AWS CLI v2.32.0+
 gudcommit
 ```
 
-Credentials auto-refresh every 15 minutes (via AWS CLI) for up to 12 hours.
+Credentials refresh automatically while the login session is valid (up to 12 hours). IAM Identity Center (`aws sso login`), assumed roles, environment variables and IAM roles also work.
 
-**Note**: gudcommit defaults to using the `gudcommit` profile from `~/.aws/config`, so you don't need to set `AWS_PROFILE` unless you want to use a different profile.
-
-#### Environment Variables
-
-```bash
-export AWS_ACCESS_KEY_ID=your-key
-export AWS_SECRET_ACCESS_KEY=your-secret
-export AWS_SESSION_TOKEN=your-token  # if using temporary credentials
-export AWS_REGION=us-east-1
-```
-
-#### Shared Credentials File
-
-Configure `~/.aws/credentials`:
-```ini
-[default]
-aws_access_key_id = your-key
-aws_secret_access_key = your-secret
-```
-
-For complete details on `aws login` and other methods, see [AWS_SSO_SUPPORT.md](./AWS_SSO_SUPPORT.md).
+See [QUICKSTART_AWS_LOGIN.md](./QUICKSTART_AWS_LOGIN.md) for other credential sources and troubleshooting.
 
 ### Environment Variables
 
@@ -276,20 +228,20 @@ The Go version offers several performance advantages:
 ### Common Issues
 
 1. **AWS Authentication**: 
-   - **NEW `aws login`**: Ensure AWS CLI v2.32.0+, run `aws login --profile your-profile`, and use `credential_process` workaround
+   - **`aws login`**: Ensure AWS CLI v2.32.0+ and run `aws login --profile gudcommit` (sessions last up to 12 hours)
    - **Environment variables**: Ensure `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are set
    - **Legacy AWS SSO**: Ensure you're logged in: `aws sso login --profile your-profile`
    - Check that your credentials have access to AWS Bedrock
 2. **Git Repository**: Make sure you're in a git repository with staged changes
 3. **Region**: Verify that AWS Bedrock is available in your configured region (defaults to us-east-1)
-4. **credential_process errors**: Verify AWS CLI is in PATH and test with `aws configure export-credentials --profile your-profile --format process`
+4. **Wrong identity**: static keys in `~/.aws/credentials` or `AWS_ACCESS_KEY_ID` take precedence over `aws login`; check with `aws sts get-caller-identity --profile gudcommit`
 
 ### Debug Mode
 
-To enable debug output, set the `DEBUG` environment variable:
+To print config-loading diagnostics (secrets are never printed), set `GUD_DEBUG`:
 
 ```bash
-DEBUG=1 ./bin/gudcommit
+GUD_DEBUG=1 ./bin/gudcommit
 ```
 
 ## Contributing
