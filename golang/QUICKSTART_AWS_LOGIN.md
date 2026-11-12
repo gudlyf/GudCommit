@@ -1,123 +1,59 @@
-# Quick Start: Using `aws login` with gudcommit/gudchangelog
+# AWS Credentials for the Bedrock Provider
 
-This guide shows you how to set up the NEW `aws login` method with your gudcommit/gudchangelog tools.
+The `bedrock` provider uses the standard AWS SDK for Go v2 credential chain, which reads `aws login` sessions natively. No `credential_process` wrapper or extra profile is needed.
 
-## Prerequisites
+## Quick start with `aws login` (recommended)
 
-Check your AWS CLI version (must be v2.32.0 or later):
-```bash
-aws --version
-```
-
-If you need to upgrade: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
-
-## Setup (5 minutes)
-
-### Step 1: Log in with AWS Console Credentials
+Requires AWS CLI v2.32.0 or later (`aws --version`).
 
 ```bash
-aws login --profile my-aws
+aws login --profile gudcommit --region us-east-1
+aws configure get login_session --profile gudcommit   # should print your identity ARN
+aws sts get-caller-identity --profile gudcommit       # should print your account and ARN
 ```
 
-This opens your browser to authenticate. After logging in, credentials are cached in `~/.aws/login/cache`.
-
-### Step 2: Configure credential_process
-
-Edit `~/.aws/config` and add:
+`aws login` opens your browser, signs you in with your AWS Console identity, caches a refresh token in `~/.aws/login/cache/`, and records `login_session` for the profile in `~/.aws/config`. The result looks like:
 
 ```ini
-[profile my-aws]
+[profile gudcommit]
 login_session = arn:aws:iam::123456789012:user/yourname
 region = us-east-1
-
-[profile gudcommit]
-credential_process = aws configure export-credentials --profile my-aws --format process
-region = us-east-1
 ```
 
-**Why?** AWS SDK for Go v2 doesn't yet natively read `login_session`, so we use `credential_process` to delegate to the AWS CLI, which does support it.
-
-### Step 3: Test It
+gudcommit and gudchangelog use the `gudcommit` profile when `AWS_PROFILE` is not set. To use a profile you already log in with, point at it instead:
 
 ```bash
-aws sts get-caller-identity --profile gudcommit
+export AWS_PROFILE=my-profile
 ```
 
-If this works, you're ready!
+Temporary credentials are refreshed automatically while the login session is valid (up to 12 hours, or whatever your IAM identity allows). After that, run `aws login --profile gudcommit` again.
 
-### Step 4: Use gudcommit
+## Other credential sources
 
-```bash
-cd /path/to/your/git/repo
-git add .
-gudcommit  # Automatically uses 'gudcommit' profile by default!
-```
+Anything the AWS SDK supports works, for example:
 
-**Note**: gudcommit automatically defaults to the `gudcommit` profile, so you don't need to set `AWS_PROFILE` unless you want to use a different profile.
+- **IAM Identity Center (SSO):** `sso_session`/`sso_*` settings in the profile, then `aws sso login --profile <name>`
+- **Environment variables:** `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`
+- **Assumed roles:** `role_arn` + `source_profile`
+- **IAM roles** on EC2, ECS, or Lambda
 
-## How It Works
-
-1. **Login**: `aws login` gets your Console credentials
-2. **Cache**: Credentials stored in `~/.aws/login/cache/`
-3. **Short-lived**: Credentials expire every 15 minutes
-4. **Auto-refresh**: AWS CLI (via `credential_process`) automatically refreshes them
-5. **Max session**: Up to 12 hours, then run `aws login` again
+Avoid long-lived access keys in `~/.aws/credentials` where you can; `aws login` and SSO give you short-lived credentials instead.
 
 ## Troubleshooting
 
-### "Unable to load AWS SDK config"
-- Run `aws login --profile my-aws` first
-- Check `~/.aws/config` has the `credential_process` line
-- Set `AWS_PROFILE=gudcommit`
+**"AWS credential error" / "The provided authorization grant is invalid, expired, revoked, or malformed"**
+The login session has expired. Run `aws login --profile <profile>` again.
 
-### "credential_process failed"
-Test the command directly:
-```bash
-aws configure export-credentials --profile my-aws --format process
-```
+**"failed to get shared config profile, gudcommit"**
+No `gudcommit` profile exists. Run the quick start above, or set `AWS_PROFILE` to a profile you use.
 
-If this fails:
-- Your login session may have expired (max 12 hours)
-- Run `aws login --profile my-aws` again
+**It's using a different identity than you expect**
+Static keys win over `login_session`. If `~/.aws/credentials` has a section with the same profile name, or `AWS_ACCESS_KEY_ID` is set in your environment, those are used instead of your login session. Remove them, or use a different profile name.
 
-### "No credentials found"
-gudcommit automatically uses the `gudcommit` profile by default. Make sure `~/.aws/config` has a `[profile gudcommit]` section with `credential_process` configured.
+**Wrong region / model not found**
+Set `region` in the profile or `AWS_REGION`, and make sure the model in `model_id` is enabled in that region. `scripts/list-bedrock-models.sh` lists what's available.
 
-Alternatively, you can override the profile:
-```bash
-export AWS_PROFILE=my-other-profile
-```
+## References
 
-Or use environment variables directly:
-```bash
-export AWS_ACCESS_KEY_ID=your-key
-export AWS_SECRET_ACCESS_KEY=your-secret
-export AWS_REGION=us-east-1
-```
-
-## Alternative: Environment Variables
-
-If you prefer not to use `aws login`, you can use traditional credentials:
-
-```bash
-export AWS_ACCESS_KEY_ID=your-key
-export AWS_SECRET_ACCESS_KEY=your-secret
-export AWS_SESSION_TOKEN=your-token  # if temporary
-export AWS_REGION=us-east-1
-gudcommit
-```
-
-## Benefits of `aws login`
-
-- ✅ No long-lived access keys to manage
-- ✅ Automatic credential rotation every 15 minutes
-- ✅ Uses your Console login (IAM user, root, or federated)
-- ✅ More secure than static credentials
-- ✅ Same credentials work across AWS CLI and SDK tools
-
-## More Information
-
-For complete details, see:
-- [AWS_SSO_SUPPORT.md](./AWS_SSO_SUPPORT.md) - Full documentation
-- [README.md](./README.md) - General gudcommit documentation
-- [AWS Login Docs](https://docs.aws.amazon.com/sdkref/latest/guide/feature-login-credentials.html)
+- [AWS login credentials](https://docs.aws.amazon.com/sdkref/latest/guide/feature-login-credentials.html)
+- [AWS SDK credential provider chain](https://docs.aws.amazon.com/sdkref/latest/guide/standardized-credentials.html)
