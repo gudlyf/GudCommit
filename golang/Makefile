@@ -1,4 +1,8 @@
-.PHONY: build install clean test gudcommit gudchangelog
+.PHONY: build install clean test gudcommit gudchangelog build-all checksums
+
+# -trimpath removes local filesystem paths from binaries; CGO_ENABLED=0 gives
+# static, reproducible builds.
+GOBUILD := CGO_ENABLED=0 go build -trimpath
 
 # Build both binaries
 build: gudcommit gudchangelog
@@ -7,13 +11,13 @@ build: gudcommit gudchangelog
 gudcommit:
 	@echo "Building gudcommit..."
 	@mkdir -p bin
-	@go build -o bin/gudcommit ./cmd/gudcommit
+	@$(GOBUILD) -o bin/gudcommit ./cmd/gudcommit
 
 # Build gudchangelog binary  
 gudchangelog:
 	@echo "Building gudchangelog..."
 	@mkdir -p bin
-	@go build -o bin/gudchangelog ./cmd/gudchangelog
+	@$(GOBUILD) -o bin/gudchangelog ./cmd/gudchangelog
 
 # Install binaries to user's home directory
 install: build
@@ -55,19 +59,27 @@ lint:
 build-all:
 	@echo "Building for multiple platforms..."
 	@mkdir -p bin
-	@GOOS=linux GOARCH=amd64 go build -o bin/gudcommit-linux-amd64 ./cmd/gudcommit
-	@GOOS=linux GOARCH=arm64 go build -o bin/gudcommit-linux-arm64 ./cmd/gudcommit
-	@GOOS=darwin GOARCH=amd64 go build -o bin/gudcommit-darwin-amd64 ./cmd/gudcommit
-	@GOOS=darwin GOARCH=arm64 go build -o bin/gudcommit-darwin-arm64 ./cmd/gudcommit
-	@GOOS=windows GOARCH=amd64 go build -o bin/gudcommit-windows-amd64.exe ./cmd/gudcommit
-	@GOOS=windows GOARCH=arm64 go build -o bin/gudcommit-windows-arm64.exe ./cmd/gudcommit
-	@GOOS=linux GOARCH=amd64 go build -o bin/gudchangelog-linux-amd64 ./cmd/gudchangelog
-	@GOOS=linux GOARCH=arm64 go build -o bin/gudchangelog-linux-arm64 ./cmd/gudchangelog
-	@GOOS=darwin GOARCH=amd64 go build -o bin/gudchangelog-darwin-amd64 ./cmd/gudchangelog
-	@GOOS=darwin GOARCH=arm64 go build -o bin/gudchangelog-darwin-arm64 ./cmd/gudchangelog
-	@GOOS=windows GOARCH=amd64 go build -o bin/gudchangelog-windows-amd64.exe ./cmd/gudchangelog
-	@GOOS=windows GOARCH=arm64 go build -o bin/gudchangelog-windows-arm64.exe ./cmd/gudchangelog
+	@GOOS=linux GOARCH=amd64 $(GOBUILD) -o bin/gudcommit-linux-amd64 ./cmd/gudcommit
+	@GOOS=linux GOARCH=arm64 $(GOBUILD) -o bin/gudcommit-linux-arm64 ./cmd/gudcommit
+	@GOOS=darwin GOARCH=amd64 $(GOBUILD) -o bin/gudcommit-darwin-amd64 ./cmd/gudcommit
+	@GOOS=darwin GOARCH=arm64 $(GOBUILD) -o bin/gudcommit-darwin-arm64 ./cmd/gudcommit
+	@GOOS=windows GOARCH=amd64 $(GOBUILD) -o bin/gudcommit-windows-amd64.exe ./cmd/gudcommit
+	@GOOS=windows GOARCH=arm64 $(GOBUILD) -o bin/gudcommit-windows-arm64.exe ./cmd/gudcommit
+	@GOOS=linux GOARCH=amd64 $(GOBUILD) -o bin/gudchangelog-linux-amd64 ./cmd/gudchangelog
+	@GOOS=linux GOARCH=arm64 $(GOBUILD) -o bin/gudchangelog-linux-arm64 ./cmd/gudchangelog
+	@GOOS=darwin GOARCH=amd64 $(GOBUILD) -o bin/gudchangelog-darwin-amd64 ./cmd/gudchangelog
+	@GOOS=darwin GOARCH=arm64 $(GOBUILD) -o bin/gudchangelog-darwin-arm64 ./cmd/gudchangelog
+	@GOOS=windows GOARCH=amd64 $(GOBUILD) -o bin/gudchangelog-windows-amd64.exe ./cmd/gudchangelog
+	@GOOS=windows GOARCH=arm64 $(GOBUILD) -o bin/gudchangelog-windows-arm64.exe ./cmd/gudchangelog
 	@echo "Cross-platform builds complete!"
+	@$(MAKE) --no-print-directory checksums
+
+# Write SHA256SUMS for release binaries (verify with: sha256sum -c SHA256SUMS)
+checksums:
+	@cd bin && rm -f SHA256SUMS && \
+		if command -v sha256sum >/dev/null 2>&1; then sha256sum gudcommit-* gudchangelog-* > SHA256SUMS; \
+		else shasum -a 256 gudcommit-* gudchangelog-* > SHA256SUMS; fi
+	@echo "Wrote bin/SHA256SUMS"
 
 # Help target
 help:

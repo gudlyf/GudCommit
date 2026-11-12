@@ -215,8 +215,8 @@ BenchmarkExtractFallbackCommits-10    	   96433	     11855 ns/op
 
 The Go version uses a **completely different approach** than the JavaScript version:
 
-### **API Key Authentication (New Approach)**
-- **Environment Variable**: `GUD_BEDROCK_API_KEY` - Short-term Bedrock API key
+### **Authentication**
+- **AWS credentials**: standard AWS SDK credential chain (`aws login`, SSO, env vars). The former `GUD_BEDROCK_API_KEY` method and its helper scripts have been removed.
 - **Region**: `AWS_REGION` (defaults to `us-east-1`)
 - **Model**: `GUD_BEDROCK_MODEL_ID` (defaults to `anthropic.claude-3-5-sonnet-20240620-v1:0`)
 - **Timeout**: `GUD_HTTP_TIMEOUT_SECONDS` (defaults to 60 seconds)

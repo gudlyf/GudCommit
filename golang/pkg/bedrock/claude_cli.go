@@ -1,6 +1,7 @@
 package bedrock
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -44,13 +45,44 @@ Then use: "provider": "claude-cli" in ~/.gudcommit.json or GUD_PROVIDER=claude-c
 	return &ClaudeCLIClient{claudePath: path, timeoutSec: timeout}, nil
 }
 
-// InvokeModel runs `claude -p "<prompt>"` and returns the printed response.
+// claudeCLIArgs returns the arguments used to run the Claude CLI as a plain,
+// tool-less text generator. The git diff in the prompt is untrusted input, so the
+// session must not be able to run commands, edit files, or reach MCP servers.
+// Note: --tools is variadic, so it is kept before other flags with explicit values.
+func claudeCLIArgs() []string {
+	return []string{
+		"-p",
+		"--tools", "",
+		"--strict-mcp-config",
+		"--no-session-persistence",
+		"--setting-sources", "user",
+		"--output-format", "text",
+	}
+}
+
+// InvokeModel runs the Claude CLI in print mode, sending the prompt on stdin, and
+// returns the printed response.
 func (c *ClaudeCLIClient) InvokeModel(prompt, _ string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.timeoutSec)*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, c.claudePath, "-p", prompt)
-	cmd.Stdin = nil
+	// Run from a neutral, empty directory so the CLI does not pick up the
+	// repository's CLAUDE.md, .claude/settings.json, hooks, or .mcp.json.
+	workDir, err := os.MkdirTemp("", "gudcommit-claude-")
+	if err != nil {
+		return "", fmt.Errorf("claude CLI: create temp dir: %w", err)
+	}
+	defer os.RemoveAll(workDir)
+
+	// Prompt goes on stdin rather than argv: argv is visible to other local users
+	// via ps and is limited by ARG_MAX, which large diffs exceed.
+	// claudePath comes from the user's own PATH or GUD_CLAUDE_CLI_PATH; args are constant.
+	cmd := exec.CommandContext(ctx, c.claudePath, claudeCLIArgs()...) //nolint:gosec // G204: see above
+	cmd.Dir = workDir
+	cmd.Stdin = strings.NewReader(prompt)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
 	// Spinner while CLI runs
 	spinnerChars := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -72,17 +104,17 @@ func (c *ClaudeCLIClient) InvokeModel(prompt, _ string) (string, error) {
 		}
 	}()
 
-	out, err := cmd.CombinedOutput()
+	err = cmd.Run()
 	close(done)
 	fmt.Fprint(os.Stderr, "\r\033[K")
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return "", fmt.Errorf("claude CLI timed out after %d seconds: %w", c.timeoutSec, err)
 		}
-		return "", fmt.Errorf("claude CLI failed: %w\nOutput: %s", err, string(out))
+		return "", fmt.Errorf("claude CLI failed: %w\nOutput: %s", err, strings.TrimSpace(stderr.String()))
 	}
 
-	text := strings.TrimSpace(string(out))
+	text := strings.TrimSpace(stdout.String())
 	if text == "" {
 		return "", fmt.Errorf("claude CLI produced no output")
 	}

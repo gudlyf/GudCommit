@@ -229,6 +229,9 @@ For complete details on `aws login` and other methods, see [AWS_SSO_SUPPORT.md](
 - `AWS_REGION` (optional): AWS region (defaults to us-east-1)
 - `GUD_BEDROCK_MODEL_ID` (optional): Override the default model ID
 - `GUD_HTTP_TIMEOUT_SECONDS` (optional): Override the default timeout (60 seconds)
+- `GUD_DEBUG` (optional): Set to `1` to print config-loading diagnostics to stderr
+- `GUD_MAX_DIFF_BYTES` (optional): Largest diff sent to the LLM (default 400000; 0 disables)
+- `GUD_ALLOW_SECRETS` (optional): Set to `1` to send diffs flagged as containing secrets without prompting
 
 ### JSON Configuration (Optional)
 

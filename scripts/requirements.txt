@@ -1,2 +1,0 @@
-# GudCommit Bedrock API Key Generator Dependencies
-aws-bedrock-token-generator>=1.0.0

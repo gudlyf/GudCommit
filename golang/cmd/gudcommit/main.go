@@ -11,7 +11,11 @@ import (
 	"strings"
 
 	"github.com/gudlyf/GudCommit/golang/pkg/bedrock"
+	"github.com/gudlyf/GudCommit/golang/pkg/diffguard"
 )
+
+// stdin is shared by all prompts so buffered input is never lost between them.
+var stdin = bufio.NewReader(os.Stdin)
 
 // CommitMessage represents a structured commit message
 type CommitMessage struct {
@@ -193,8 +197,7 @@ func extractFallbackCommits(response string) []string {
 // promptUser prompts the user for confirmation
 func promptUser(message string) (string, error) {
 	fmt.Print("Proceed with the commit? (y/n or e to Edit): ")
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
+	response, err := stdin.ReadString('\n')
 	if err != nil {
 		return "", err
 	}
@@ -219,6 +222,13 @@ func run() error {
 	// Check if diffOutput is empty
 	if strings.TrimSpace(diffOutput) == "" {
 		fmt.Println(">> No changes to commit.")
+		return nil
+	}
+
+	// Check for secrets and size before the diff leaves the machine
+	if ok, guardErr := diffguard.Enforce(diffOutput, stdin, os.Stdout); guardErr != nil {
+		return fmt.Errorf("failed to read user input: %w", guardErr)
+	} else if !ok {
 		return nil
 	}
 

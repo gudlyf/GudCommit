@@ -60,6 +60,7 @@ func NewAnthropicClient(cfg Config) (*AnthropicClient, error) {
 		apiKey = os.Getenv("GUD_ANTHROPIC_API_KEY")
 	}
 	if apiKey == "" {
+		//nolint:staticcheck // ST1005: intentional multi-line, user-facing help text
 		return nil, fmt.Errorf(`Anthropic provider requires an API key.
 
 Set one of:
@@ -149,9 +150,14 @@ func (c *AnthropicClient) InvokeModel(prompt, _ string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
+	// Bound the response size; a normal reply (max_tokens 2048) is far smaller.
+	const maxRespBytes = 4 << 20
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxRespBytes))
+	if err != nil {
+		return "", fmt.Errorf("anthropic response read: %w", err)
+	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("anthropic API error: %d - %s", resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("anthropic API error: %d - %s", resp.StatusCode, truncate(string(respBody), 1024))
 	}
 
 	var out anthropicMessageResp
@@ -165,4 +171,11 @@ func (c *AnthropicClient) InvokeModel(prompt, _ string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("anthropic API returned no text content")
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "...(truncated)"
 }

@@ -22,8 +22,16 @@ stages:
   - build
   - release
 
+# Pinned to an immutable S3 object version so a change to the shared config
+# cannot alter this pipeline without a reviewed commit here. ("&pin=.yml" keeps
+# the URL ending in .yml, which GitLab may require for includes; S3 ignores it.)
+# To update: curl -sI <url without query> | grep -i x-amz-version-id
+# To revert: drop everything from "?versionId" onward.
+# If your GitLab supports include integrity checks, you can also add:
+#   integrity: 'sha256-H0+4qmkhnNjNI5keJ/w7xp/vlPgWj0xM258rQod3kIA='
+# Note: that file includes snyk.yml from the same bucket unpinned.
 include:
-  - remote: 'https://jornaya-leadidaws-us-east-1-gitlab-configs.s3.amazonaws.com/jornaya-gitlab-ci.yml'
+  - remote: 'https://jornaya-leadidaws-us-east-1-gitlab-configs.s3.amazonaws.com/jornaya-gitlab-ci.yml?versionId=7iCnHKec_PdgZXrwKNSB8PAG1kALgUeG&pin=.yml'
     inputs:
       SAST_SEVERITY_THRESHOLD: $[[ inputs.SAST_SEVERITY_THRESHOLD ]]
       SAST_ALLOW_FAILURE: $[[ inputs.SAST_ALLOW_FAILURE ]]
@@ -44,7 +52,7 @@ Snyk OpenSource Golang:
 # Download dependencies
 Download Dependencies:
   stage: deps
-  image: golang:1.25-alpine
+  image: golang:1.27-alpine
   script:
     - apk add make
     - cd golang && make deps
@@ -60,7 +68,7 @@ Download Dependencies:
 # Check code formatting
 Format Check:
   stage: lint
-  image: golang:1.25-alpine
+  image: golang:1.27-alpine
   script:
     - apk add git make
     - cd golang && make fmt
@@ -87,13 +95,13 @@ Format Check:
 # Lint code with golangci-lint
 Lint:
   stage: lint
-  image: golang:1.25-alpine
+  image: golang:1.27-alpine
   script:
     - apk add --no-cache git make
     - cd golang
     - go mod download
     - go mod tidy
-    - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+    - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
     - golangci-lint run --verbose
   tags:
     - docker
@@ -110,7 +118,7 @@ Lint:
 
 Test:
   stage: test
-  image: golang:1.25-alpine
+  image: golang:1.27-alpine
   script:
     - apk add make
     - cd golang && make test
@@ -129,10 +137,11 @@ Test:
 
 Build:
   stage: build
-  image: golang:1.25-alpine
+  image: golang:1.27-alpine
   script:
     - apk add make
     - cd golang && make build-all
+    - cd bin && sha256sum -c SHA256SUMS
   artifacts:
     paths:
       - golang/bin/*
@@ -157,7 +166,7 @@ Build:
 # Clean build artifacts (runs on all branches)
 Clean:
   stage: build
-  image: golang:1.25-alpine
+  image: golang:1.27-alpine
   script:
     - apk add make
     - cd golang && make clean
@@ -176,7 +185,7 @@ Clean:
 # Create GitLab Release for tagged versions
 Create Release:
   stage: release
-  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  image: registry.gitlab.com/gitlab-org/release-cli:v0.24.0
   script:
     - echo "Creating release for version $CI_COMMIT_TAG"
   release:
@@ -197,6 +206,9 @@ Create Release:
       Download the appropriate binary for your platform and make it executable:
       chmod +x gudcommit-<platform>-<arch>
       chmod +x gudchangelog-<platform>-<arch>
+
+      Verify downloads against SHA256SUMS:
+      sha256sum -c SHA256SUMS --ignore-missing
       
       Build Info:
       - Commit: $CI_COMMIT_SHA
@@ -253,7 +265,7 @@ Create Release:
 # Upload to GitLab Package Registry
 Upload to Package Registry:
   stage: release
-  image: curlimages/curl:latest
+  image: curlimages/curl:8.23.0
   tags:
     - docker
   script:
@@ -297,7 +309,7 @@ Upload to Package Registry:
 # Track deployment
 Track Deployment:
   stage: release
-  image: curlimages/curl:latest
+  image: curlimages/curl:8.23.0
   tags:
     - docker
   script:

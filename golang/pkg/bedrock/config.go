@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -50,25 +51,22 @@ func LoadConfig() (Config, error) {
 		}
 		for _, p := range candidates {
 			if _, statErr := os.Stat(p); statErr == nil {
-				// Debug: Print which config file is being loaded
-				fmt.Fprintf(os.Stderr, "Loading config from: %s\n", p)
+				debugf("Loading config from: %s\n", p)
 
 				data, readErr := os.ReadFile(p)
 				if readErr != nil {
 					return cfg, fmt.Errorf("failed to read config file %s: %w", p, readErr)
 				}
 
-				// Debug: Print raw file contents
-				fmt.Fprintf(os.Stderr, "Config file contents: %s\n", string(data))
-
 				var fileCfg Config
 				if decErr := json.Unmarshal(data, &fileCfg); decErr != nil {
-					return cfg, fmt.Errorf("failed to decode config file %s: %w", p, decErr)
+					// Do not wrap decErr: json syntax errors can quote file contents (secrets).
+					return cfg, fmt.Errorf("failed to decode config file %s: invalid JSON", p)
 				}
 
-				// Debug: Print parsed config
-				fmt.Fprintf(os.Stderr, "Parsed config - ModelID: %s, TimeoutSeconds: %d, Region: %s\n",
-					fileCfg.ModelID, fileCfg.TimeoutSeconds, fileCfg.Region)
+				if fileCfg.AnthropicAPIKey != "" {
+					warnIfInsecurePerms(p)
+				}
 
 				// Merge file config
 				if fileCfg.Provider != "" {
@@ -76,7 +74,6 @@ func LoadConfig() (Config, error) {
 				}
 				if fileCfg.ModelID != "" {
 					cfg.ModelID = fileCfg.ModelID
-					fmt.Fprintf(os.Stderr, "Using ModelID from config: %s\n", cfg.ModelID)
 				}
 				if fileCfg.TimeoutSeconds > 0 {
 					cfg.TimeoutSeconds = fileCfg.TimeoutSeconds
@@ -98,7 +95,7 @@ func LoadConfig() (Config, error) {
 	}
 	if v := os.Getenv("GUD_BEDROCK_MODEL_ID"); v != "" {
 		cfg.ModelID = v
-		fmt.Fprintf(os.Stderr, "ModelID overridden by GUD_BEDROCK_MODEL_ID env var: %s\n", cfg.ModelID)
+		debugf("ModelID overridden by GUD_BEDROCK_MODEL_ID env var: %s\n", cfg.ModelID)
 	}
 	if v := os.Getenv("GUD_ANTHROPIC_MODEL"); v != "" {
 		cfg.ModelID = v
@@ -123,14 +120,42 @@ func LoadConfig() (Config, error) {
 		cfg.ModelID = defaultAnthropicModel
 	}
 
-	// Debug: Print final configuration
-	fmt.Fprintf(os.Stderr, "\n✓ Final configuration:\n")
-	fmt.Fprintf(os.Stderr, "  Provider: %s\n", cfg.Provider)
-	fmt.Fprintf(os.Stderr, "  Model ID: %s\n", cfg.ModelID)
-	fmt.Fprintf(os.Stderr, "  Timeout: %d seconds\n", cfg.TimeoutSeconds)
-	fmt.Fprintf(os.Stderr, "  Region: %s\n\n", cfg.Region)
+	// Never log secrets here (AnthropicAPIKey).
+	debugf("Final configuration: provider=%s model=%s timeout=%ds region=%s\n",
+		cfg.Provider, cfg.ModelID, cfg.TimeoutSeconds, cfg.Region)
 
 	return cfg, nil
+}
+
+// debugEnabled reports whether GUD_DEBUG is set to a truthy value.
+func debugEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("GUD_DEBUG"))) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
+}
+
+// debugf writes diagnostic output to stderr only when GUD_DEBUG is enabled.
+func debugf(format string, args ...any) {
+	if debugEnabled() {
+		fmt.Fprintf(os.Stderr, format, args...)
+	}
+}
+
+// warnIfInsecurePerms warns when a file holding secrets is readable by group or others.
+func warnIfInsecurePerms(path string) {
+	// Unix permission bits are not meaningful on Windows (files report 0666).
+	if runtime.GOOS == "windows" {
+		return
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return
+	}
+	if mode := info.Mode().Perm(); mode&0o077 != 0 {
+		fmt.Fprintf(os.Stderr, "⚠️  %s contains an API key but has permissions %#o; run: chmod 600 %s\n", path, mode, path)
+	}
 }
 
 // normalizeProvider returns a known provider constant; invalid values default to "bedrock".

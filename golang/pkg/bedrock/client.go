@@ -170,14 +170,19 @@ func NewInvoker() (Invoker, error) {
 	if err != nil {
 		return nil, err
 	}
+	var inv Invoker
 	switch cfg.Provider {
 	case ProviderClaudeCLI:
-		return NewClaudeCLIClient(cfg)
+		inv, err = NewClaudeCLIClient(cfg)
 	case ProviderAnthropic:
-		return NewAnthropicClient(cfg)
+		inv, err = NewAnthropicClient(cfg)
 	default:
-		return NewClient()
+		inv, err = NewClient()
 	}
+	if err != nil {
+		return nil, err
+	}
+	return sanitizingInvoker{inner: inv}, nil
 }
 
 // InvokeModel invokes Bedrock using AWS SDK with SSO credential support

@@ -8,17 +8,23 @@ on:
     branches: [ "**" ]
   workflow_dispatch:
 
+# Least privilege by default; jobs that need more request it explicitly.
+permissions:
+  contents: read
+
 jobs:
   deps:
     name: Download dependencies
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          go-version: '1.25.x'
+          persist-credentials: false
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.27.x'
           cache-dependency-path: golang/go.sum
       - name: Download deps
         run: cd golang && make deps
@@ -28,10 +34,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: deps
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          go-version: '1.25.x'
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.27.x'
           cache-dependency-path: golang/go.sum
       - name: Run go fmt
         run: cd golang && make fmt && git diff --exit-code || (echo "Code is not properly formatted. Please run 'make fmt' and commit the changes." && git diff && exit 1)
@@ -41,10 +49,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: fmt
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          go-version: '1.25.x'
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.27.x'
           cache-dependency-path: golang/go.sum
       - name: Install tools
         run: |
@@ -52,8 +62,9 @@ jobs:
           go mod download
           go mod tidy
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
+          version: v2.15.0
           working-directory: golang
           args: --config .golangci.yml --verbose
 
@@ -62,23 +73,42 @@ jobs:
     runs-on: ubuntu-latest
     needs: [fmt, lint]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          go-version: '1.25.x'
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.27.x'
           cache-dependency-path: golang/go.sum
       - name: Run tests
         run: cd golang && make test
 
+  vulncheck:
+    name: Vulnerability check
+    runs-on: ubuntu-latest
+    needs: deps
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.27.x'
+          cache-dependency-path: golang/go.sum
+      - name: govulncheck
+        run: cd golang && go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
   build:
     name: Build (all platforms)
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, vulncheck]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          go-version: '1.25.x'
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: '1.27.x'
           cache-dependency-path: golang/go.sum
       - name: Build all
         run: |
@@ -88,7 +118,7 @@ jobs:
           echo "BUILD_COMMIT=${GITHUB_SHA}" >> build.env
           echo "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> build.env
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: gudcommit-binaries
           path: |
@@ -103,11 +133,15 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     needs: build
     permissions:
-      contents: write
+      contents: write      # create the release
+      id-token: write      # sign build provenance (Sigstore OIDC)
+      attestations: write  # store the attestation
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: gudcommit-binaries
           path: dist
@@ -122,8 +156,17 @@ jobs:
         shell: bash
         run: |
           echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      - name: Verify checksums
+        run: |
+          sums=$(find dist -name SHA256SUMS)
+          test -n "$sums" || { echo "SHA256SUMS missing from build artifacts"; exit 1; }
+          cd "$(dirname "$sums")" && sha256sum -c SHA256SUMS
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: 'dist/**/gud*'
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           name: Release ${{ github.ref_name }}
           body: |
@@ -137,6 +180,10 @@ jobs:
             - Linux (amd64, arm64)
             - macOS (amd64, arm64)
             - Windows (amd64, arm64)
+
+            Verify a download:
+            - Checksum: sha256sum -c SHA256SUMS --ignore-missing
+            - Provenance: gh attestation verify <file> --repo ${{ github.repository }}
 
             Build Info:
             - Commit: ${{ github.sha }}

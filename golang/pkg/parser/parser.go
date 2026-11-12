@@ -1,9 +1,10 @@
 package parser
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"regexp"
 	"strings"
 )
@@ -32,12 +33,18 @@ type ChangelogResponse struct {
 	Changelog ChangelogEntry `json:"changelog"`
 }
 
-// GenerateRandomString generates a random string of specified length
+// GenerateRandomString generates a random alphanumeric string of the specified
+// length using a cryptographically secure source.
 func GenerateRandomString(length int) string {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890"
+	max := big.NewInt(int64(len(charset)))
 	b := make([]byte, length)
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		n, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			panic(fmt.Sprintf("crypto/rand failed: %v", err))
+		}
+		b[i] = charset[n.Int64()]
 	}
 	return string(b)
 }
@@ -125,7 +132,7 @@ func ParseChangelogResponse(response string) (string, error) {
 	if len(changelogResp.Changelog.Removed) > 0 {
 		changelog.WriteString("### Removed\n\n")
 		for _, item := range changelogResp.Changelog.Removed {
-			changelog.WriteString(fmt.Sprintf("- %s\n", item))
+			fmt.Fprintf(&changelog, "- %s\n", item)
 		}
 		changelog.WriteString("\n")
 	}
@@ -133,7 +140,7 @@ func ParseChangelogResponse(response string) (string, error) {
 	if len(changelogResp.Changelog.Added) > 0 {
 		changelog.WriteString("### Added\n\n")
 		for _, item := range changelogResp.Changelog.Added {
-			changelog.WriteString(fmt.Sprintf("- %s\n", item))
+			fmt.Fprintf(&changelog, "- %s\n", item)
 		}
 		changelog.WriteString("\n")
 	}
@@ -141,7 +148,7 @@ func ParseChangelogResponse(response string) (string, error) {
 	if len(changelogResp.Changelog.Changed) > 0 {
 		changelog.WriteString("### Changed\n\n")
 		for _, item := range changelogResp.Changelog.Changed {
-			changelog.WriteString(fmt.Sprintf("- %s\n", item))
+			fmt.Fprintf(&changelog, "- %s\n", item)
 		}
 		changelog.WriteString("\n")
 	}
