@@ -157,6 +157,11 @@ For `claude-cli`, ensure the `claude` binary is on your PATH, or set `GUD_CLAUDE
 - `GUD_BEDROCK_MODEL_ID` / `GUD_ANTHROPIC_MODEL` – model ID/name
 - `GUD_HTTP_TIMEOUT_SECONDS` – timeout in seconds
 - `AWS_REGION`, `AWS_PROFILE` (Bedrock only; profile defaults to `gudcommit`)
+- `GUD_DEBUG=1` – print config-loading diagnostics to stderr (secrets are never printed)
+- `GUD_MAX_DIFF_BYTES` – largest diff that will be sent to the LLM (default `400000`; `0` disables the limit)
+- `GUD_ALLOW_SECRETS=1` – send a diff even if it looks like it contains secrets, without asking (for scripts)
+
+If you put `anthropic_api_key` in `~/.gudcommit.json`, restrict it with `chmod 600 ~/.gudcommit.json`; the tool warns when the file is group- or world-readable.
 
 ### AWS Credentials (Bedrock only)
 
@@ -273,6 +278,20 @@ function gudco() {
 - ✅ **Standard AWS security** - Uses IAM policies and SigV4 signing
 - ✅ **Secure by default** - No API keys to accidentally commit
 - ⚠️ **Never commit AWS credentials** to git
+
+**What leaves your machine:** your staged diff (or, for `gudchangelog`, the branch diff) is sent to the configured provider. Before sending, both tools check it:
+- Diffs larger than `GUD_MAX_DIFF_BYTES` (default 400 KB) are refused. Unstage lockfiles or generated files, or raise the limit.
+- Sensitive files (`.env`, `*.pem`, `*.key`, SSH keys, `.npmrc`, Terraform state, ...) and secret-shaped values (AWS, Anthropic, OpenAI, GitHub, GitLab, Slack, Google and Stripe keys, private key blocks) are listed by file and line, never by value, and you're asked whether to send anyway (default: no). Removed lines are checked too, since they are sent as well.
+
+**Prompt injection:** a diff can contain text written to manipulate the model.
+- The `claude-cli` provider runs `claude -p` with all tools disabled, MCP servers off and project settings ignored, from an empty temp directory, with the prompt on stdin. Injected text can't make it run commands or edit files.
+- Model output is stripped of terminal escape sequences and bidi control characters before it is displayed, committed, or written to `CHANGELOG.md`. Always read the proposed message before confirming.
+
+**Verifying release binaries:** releases built after this change include `SHA256SUMS` and GitHub build provenance (earlier releases don't).
+```bash
+sha256sum -c SHA256SUMS --ignore-missing          # macOS: shasum -a 256 -c SHA256SUMS --ignore-missing
+gh attestation verify gudcommit-darwin-arm64 --repo gudlyf/GudCommit
+```
 
 ## 🐛 Troubleshooting
 
@@ -444,6 +463,6 @@ cd golang && make test
 **OLD METHOD (DEPRECATED)**: Using `GUD_BEDROCK_API_KEY` environment variable  
 **NEW METHOD**: Using `aws login` with automatic credential rotation
 
-The old scripts (`scripts/auto-api-key.sh`, `scripts/generate-api-key.py`) are **no longer needed**. The tool now uses standard AWS credentials with automatic rotation.
+The old API key scripts (`scripts/auto-api-key.sh`, `scripts/generate-api-key.py`) have been removed. The tool now uses standard AWS credentials with automatic rotation. If you used them, delete the leftover key file: `rm ~/.gudcommit-credentials`.
 
 See [QUICKSTART_AWS_LOGIN.md](golang/QUICKSTART_AWS_LOGIN.md) for migration instructions.

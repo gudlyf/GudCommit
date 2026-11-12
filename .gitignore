@@ -42,3 +42,8 @@ Thumbs.db
 
 # Snyk Security Extension - AI Rules (auto-generated)
 .cursor/rules/snyk_rules.mdc
+
+# Locally built binaries (release binaries come from CI; never commit them)
+/golang/gudcommit
+/golang/gudchangelog
+/golang/bin/

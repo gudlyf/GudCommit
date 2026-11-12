@@ -1,3 +1,24 @@
+## [Unreleased]
+
+### Security
+- **Config no longer leaks API keys**: removed the stderr dump of `~/.gudcommit.json` (which included `anthropic_api_key`). Diagnostics are opt-in via `GUD_DEBUG=1` and never include secrets. Warns when a key-bearing config file is group/world-readable.
+- **claude-cli provider hardened against prompt injection**: runs `claude -p` with `--tools ""`, `--strict-mcp-config`, `--setting-sources user` and `--no-session-persistence`, from an empty temp directory, with the prompt on stdin (no longer visible in `ps` or limited by ARG_MAX). CLI stderr no longer leaks into commit messages.
+- **Outgoing diff guard**: diffs are checked before being sent to any provider. Oversized diffs are refused (`GUD_MAX_DIFF_BYTES`, default 400 KB); sensitive files and secret-shaped values are reported by file/line and require confirmation (`GUD_ALLOW_SECRETS=1` to skip).
+- **Model output sanitized**: terminal escape sequences, control characters and bidi overrides are stripped before display, commit, or writing `CHANGELOG.md`.
+- **gudchangelog option injection fixed**: the target branch is validated and resolved to a commit SHA, so values like `--output=...` can't be passed to `git diff`.
+- Anthropic API responses are size-limited; `parser.GenerateRandomString` uses `crypto/rand`.
+- Release binaries are built with `-trimpath`, ship with `SHA256SUMS`, and carry GitHub build provenance attestations.
+- CI: Go 1.27 (1.25 is out of security support), least-privilege `GITHUB_TOKEN`, SHA-pinned actions, no persisted checkout credentials, `govulncheck` gate, `gosec` linting, Dependabot, pinned GitLab images/tools and remote include.
+
+### Removed
+- `scripts/auto-api-key.sh`, `scripts/generate-api-key.py` and `scripts/requirements.txt` (deprecated Bedrock API key flow). Delete any leftover `~/.gudcommit-credentials`.
+- Prebuilt binaries `golang/gudcommit` and `golang/gudchangelog` are no longer tracked in git; use release downloads or `make build`.
+
+### Changed
+- golangci-lint upgraded to v2 (config migrated); required for Go 1.27.
+
+---
+
 ## 2.3.0
 
 ### Added

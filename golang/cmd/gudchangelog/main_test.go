@@ -66,3 +66,21 @@ func BenchmarkMainFunction(b *testing.B) {
 		// you would benchmark the actual main function logic
 	}
 }
+
+func TestResolveCommitRejectsOptions(t *testing.T) {
+	for _, ref := range []string{"", "-p", "--output=/tmp/x", "--exec=sh"} {
+		if _, err := resolveCommit(ref); err == nil {
+			t.Errorf("resolveCommit(%q) succeeded; want error", ref)
+		}
+	}
+}
+
+func TestResolveCommitReturnsSHA(t *testing.T) {
+	sha, err := resolveCommit("HEAD")
+	if err != nil {
+		t.Skipf("not in a git repo with commits: %v", err)
+	}
+	if !commitSHA.MatchString(sha) {
+		t.Fatalf("resolveCommit(HEAD) = %q, want a hex SHA", sha)
+	}
+}
