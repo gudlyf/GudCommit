@@ -27,8 +27,10 @@ type Config struct {
 }
 
 const (
-	defaultModelID        = "anthropic.claude-3-5-sonnet-20240620-v1:0"
-	defaultAnthropicModel = "claude-sonnet-4-20250514"
+	// Bedrock serves current Claude models through cross-region inference
+	// profiles; the "us." profile matches the default us-east-1 region.
+	defaultModelID        = "us.anthropic.claude-opus-5-5"
+	defaultAnthropicModel = "claude-opus-5-5"
 )
 
 // LoadConfig loads configuration from environment variables and JSON files.

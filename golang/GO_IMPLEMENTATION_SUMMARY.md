@@ -218,14 +218,14 @@ The Go version uses a **completely different approach** than the JavaScript vers
 ### **Authentication**
 - **AWS credentials**: standard AWS SDK credential chain (`aws login`, SSO, env vars). The former `GUD_BEDROCK_API_KEY` method and its helper scripts have been removed.
 - **Region**: `AWS_REGION` (defaults to `us-east-1`)
-- **Model**: `GUD_BEDROCK_MODEL_ID` (defaults to `anthropic.claude-3-5-sonnet-20240620-v1:0`)
+- **Model**: `GUD_BEDROCK_MODEL_ID` (defaults to `us.anthropic.claude-opus-5-5`)
 - **Timeout**: `GUD_HTTP_TIMEOUT_SECONDS` (defaults to 60 seconds)
 
 ### **JSON Configuration (Optional)**
 Users can create `~/.gudcommit.json` or `~/.gudchangelog.json`:
 ```json
 {
-  "model_id": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+  "model_id": "us.anthropic.claude-opus-5-5",
   "timeout_seconds": 60,
   "region": "us-east-1"
 }

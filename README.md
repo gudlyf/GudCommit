@@ -105,7 +105,7 @@ Use `~/.gudcommit.json` or `~/.gudchangelog.json`. Precedence: **env vars > ~/.g
 ```json
 {
   "provider": "anthropic",
-  "model_id": "claude-sonnet-4-20250514",
+  "model_id": "claude-opus-5-5",
   "timeout_seconds": 60
 }
 ```
@@ -123,7 +123,7 @@ Set `ANTHROPIC_API_KEY` in your environment (recommended) or add `"anthropic_api
 ```json
 {
   "provider": "bedrock",
-  "model_id": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+  "model_id": "us.anthropic.claude-opus-5-5",
   "timeout_seconds": 60,
   "region": "us-east-1"
 }
@@ -247,8 +247,8 @@ function gudco() {
 ### Current Implementation (Go)
 - **Three providers**: **claude-cli** (Claude Code CLI), **Bedrock** (AWS), **Anthropic** (Claude API)
 - **claude-cli**: Runs `claude -p "..."`; uses your Claude app / Claude Code login; no API key or AWS
-- **Bedrock**: AWS SDK Go v2, SigV4, native `aws login` support, default model `anthropic.claude-3-5-sonnet-20240620-v1:0`
-- **Anthropic**: HTTPS to `api.anthropic.com`, `ANTHROPIC_API_KEY`, default model `claude-sonnet-4-20250514`
+- **Bedrock**: AWS SDK Go v2, SigV4, native `aws login` support, default model `us.anthropic.claude-opus-5-5` (inference profile)
+- **Anthropic**: HTTPS to `api.anthropic.com`, `ANTHROPIC_API_KEY`, default model `claude-opus-5-5`
 - **Conventional commit format** with structured JSON parsing
 - **Config**: `~/.gudcommit.json` / env vars; `provider` chooses backend
 

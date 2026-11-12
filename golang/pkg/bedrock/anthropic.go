@@ -32,11 +32,8 @@ type anthropicBlock struct {
 }
 
 type anthropicMessageResp struct {
-	Content []struct {
-		Type string `json:"type"`
-		Text string `json:"text,omitempty"`
-	} `json:"content"`
-	StopReason string `json:"stop_reason,omitempty"`
+	Content    []ContentBlock `json:"content"`
+	StopReason string         `json:"stop_reason,omitempty"`
 }
 
 const anthropicAPIBase = "https://api.anthropic.com/v1/messages"
@@ -93,7 +90,7 @@ Claude Pro/Max/Teams/Enterprise subscribers have API access.`)
 func (c *AnthropicClient) InvokeModel(prompt, _ string) (string, error) {
 	payload := anthropicMessageReq{
 		Model:      c.modelID,
-		MaxTokens:  2048,
+		MaxTokens:  defaultMaxTokens,
 		APIVersion: anthropicAPIVersion,
 		Messages: []anthropicMsg{
 			{
@@ -164,13 +161,12 @@ func (c *AnthropicClient) InvokeModel(prompt, _ string) (string, error) {
 	if err := json.Unmarshal(respBody, &out); err != nil {
 		return "", fmt.Errorf("anthropic response decode: %w", err)
 	}
-	for _, block := range out.Content {
-		if block.Type == "text" && block.Text != "" {
-			fmt.Fprint(os.Stderr, "✔ :: Response received from Claude (Anthropic API)\n")
-			return block.Text, nil
-		}
+	text, err := extractText("Claude (Anthropic API)", out.StopReason, out.Content)
+	if err != nil {
+		return "", err
 	}
-	return "", fmt.Errorf("anthropic API returned no text content")
+	fmt.Fprint(os.Stderr, "✔ :: Response received from Claude (Anthropic API)\n")
+	return text, nil
 }
 
 func truncate(s string, n int) string {
